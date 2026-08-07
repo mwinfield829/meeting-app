@@ -47,13 +47,21 @@
   .chev{flex:none;width:8px;text-align:center;font-size:9px;color:var(--faint);transition:transform .15s;display:inline-block}
   .rail-cat-head.sec-collapsed .chev,.rail-sub-head.sec-collapsed .chev{transform:rotate(-90deg)}
   .series-item{display:flex;align-items:flex-start;gap:2px;border-radius:8px;position:relative;margin:1px 0}
-  .si-main{flex:1;min-width:0;cursor:pointer;padding:7px 9px;border-radius:8px}
+  .si-main{flex:1;min-width:0;cursor:pointer;padding:7px 9px;border-radius:8px;display:flex;align-items:center;gap:8px}
   .series-item:hover .si-main{background:var(--paper)}
   .series-item.active{background:var(--accent-soft);border-radius:8px}
   .series-item.active .si-main{background:transparent;box-shadow:inset 3px 0 0 var(--accent);border-radius:0 8px 8px 0}
-  .si-name{font-family:"Newsreader",serif;font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .si-name{font-family:"Newsreader",serif;font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
   .series-item.active .si-name{color:var(--accent-ink)}
   .si-sub{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);margin-top:2px}
+  .si-dot{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+  .si-cad{flex:none;font-family:"Archivo",sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.02em;color:rgba(255,255,255,.42);white-space:nowrap}
+  .rail-cnt{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:10px;color:rgba(255,255,255,.4)}
+  .rail-pin{display:block;width:100%;text-align:left;border-radius:10px;padding:9px 11px;margin:2px 2px 8px;cursor:pointer;background:color-mix(in srgb,var(--eyebrow) 12%,transparent);border:1px solid color-mix(in srgb,var(--eyebrow) 30%,transparent)}
+  .rail-pin:hover{background:color-mix(in srgb,var(--eyebrow) 18%,transparent)}
+  .rp-k{font-family:"Archivo",sans-serif;font-weight:700;font-size:8.5px;letter-spacing:.1em;color:var(--eyebrow)}
+  .rp-n{font-family:"Newsreader",serif;font-size:14px;color:#fff;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rp-t{font-family:"IBM Plex Mono",monospace;font-size:10px;color:rgba(255,255,255,.6);margin-top:1px}
   .si-menu{flex:none;border:0;background:none;color:var(--faint);cursor:pointer;font-size:15px;line-height:1;padding:6px;border-radius:6px;opacity:0;transition:.12s}
   .series-item:hover .si-menu,.series-item.active .si-menu{opacity:1}
   .si-menu:hover{color:var(--ink);background:var(--paper)}
@@ -666,11 +674,8 @@
 <div id="shell">
   <aside class="rail" id="rail">
     <div id="railMeetings">
-      <div class="rail-brand"><span class="logo" id="brandLogo"></span><div><b id="brandName">Exec Agenda</b><span id="brandSub">Meeting agendas</span></div></div>
-      <div class="rail-head">
-        <span class="rail-title">Meetings</span>
-        <button class="rail-toggle" id="railToggle" title="Collapse" aria-label="Collapse meetings">&lsaquo;</button>
-      </div>
+      <div class="rail-brand"><span class="logo" id="brandLogo"></span><div style="flex:1;min-width:0"><b id="brandName">Exec Agenda</b><span id="brandSub">Meeting agendas</span></div><button class="rail-toggle" id="railToggle" title="Collapse" aria-label="Collapse meetings">&lsaquo;</button></div>
+      <div id="railPin"></div>
       <div id="railHome" class="rail-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg> Home</div>
       <div id="seriesList"></div>
       <button class="add-series" id="addSeries"><span style="font-size:14px;font-weight:700">+</span> New meeting</button>
@@ -1562,37 +1567,41 @@ function deleteSeries(s){
 }
 function secOpen(key){return !(DB.ui.sec&&DB.ui.sec[key]);}
 function toggleSec(key){DB.ui.sec[key]=secOpen(key);save();renderRail();}
+function renderRailPin(){
+  const c=document.getElementById("railPin");if(!c)return;c.innerHTML="";
+  const s=nextUpcoming();if(!s){c.style.display="none";return;}
+  c.style.display="";
+  const line=[countdownLabel(s),(s.cur&&s.cur.time?fmtTimeDisp(s.cur.time):"")].filter(Boolean).join(" \u00b7 ");
+  const pin=document.createElement("button");pin.className="rail-pin";
+  pin.innerHTML='<div class="rp-k">UP NEXT</div><div class="rp-n"></div><div class="rp-t"></div>';
+  pin.querySelector(".rp-n").textContent=s.name||"Untitled meeting";
+  pin.querySelector(".rp-t").textContent=line;
+  pin.onclick=()=>openMeeting(s.id);
+  c.append(pin);
+}
 function renderRail(){
+  renderRailPin();
   const w=document.getElementById("seriesList");if(!w)return;w.innerHTML="";
   [["client","Client"],["internal","Internal"]].forEach(cat=>{
-    const cid=cat[0],inCat=DB.series.filter(s=>s.category===cid&&!s.archived);
-    if(!inCat.length)return;
+    const cid=cat[0];
+    const arr=DB.series.filter(s=>s.category===cid&&!s.archived).slice().sort(byNextDate);
+    if(!arr.length)return;
     const cWrap=document.createElement("div");cWrap.className="rail-cat";
     const cHead=document.createElement("div");cHead.className="rail-cat-head"+(secOpen(cid)?"":" sec-collapsed");
-    cHead.innerHTML='<span class="chev">\u25be</span><span class="lab">'+cat[1]+'</span>';
+    cHead.innerHTML='<span class="chev">\u25be</span><span class="lab">'+cat[1]+'</span><span class="rail-cnt">'+arr.length+'</span>';
     cHead.onclick=()=>toggleSec(cid);
     cWrap.append(cHead);
     if(secOpen(cid)){
-      [["rec","Recurring",true],["one","One-off",false]].forEach(t=>{
-        const arr=inCat.filter(s=>s.recurring===t[2]);if(!arr.length)return;
-        const skey=cid+":"+t[0];
-        const sub=document.createElement("div");sub.className="rail-sub";
-        const sHead=document.createElement("div");sHead.className="rail-sub-head"+(secOpen(skey)?"":" sec-collapsed");
-        sHead.innerHTML='<span class="chev">\u25be</span><span class="lab">'+t[1]+'</span>';
-        sHead.onclick=()=>toggleSec(skey);
-        sub.append(sHead);
-        if(secOpen(skey)){
-          arr.forEach(s=>{
-            const it=document.createElement("div");it.className="series-item"+((view==="agenda"&&s.id===DB.activeId)?" active":"");
-            const main=document.createElement("div");main.className="si-main";
-            const nm=document.createElement("div");nm.className="si-name";nm.textContent=s.name||"Untitled meeting";
-            main.append(nm);main.onclick=()=>openMeeting(s.id);
-            const mb=document.createElement("button");mb.className="si-menu";mb.innerHTML="\u22ef";mb.title="Meeting options";
-            mb.onclick=(e)=>{e.stopPropagation();openSMenu(s,mb);};
-            it.append(main,mb);sub.append(it);
-          });
-        }
-        cWrap.append(sub);
+      arr.forEach(s=>{
+        const it=document.createElement("div");it.className="series-item"+((view==="agenda"&&s.id===DB.activeId)?" active":"");
+        const main=document.createElement("div");main.className="si-main";
+        const dot=document.createElement("span");dot.className="si-dot";dot.style.background=cardColor(s);
+        const nm=document.createElement("span");nm.className="si-name";nm.textContent=s.name||"Untitled meeting";
+        const cad=document.createElement("span");cad.className="si-cad";cad.textContent=s.recurring?cadenceLabel(s.cadence):"One-off";
+        main.append(dot,nm,cad);main.onclick=()=>openMeeting(s.id);
+        const mb=document.createElement("button");mb.className="si-menu";mb.innerHTML="\u22ef";mb.title="Meeting options";
+        mb.onclick=(e)=>{e.stopPropagation();openSMenu(s,mb);};
+        it.append(main,mb);cWrap.append(it);
       });
     }
     w.append(cWrap);
