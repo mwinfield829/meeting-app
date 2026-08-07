@@ -404,6 +404,8 @@
   .ag-hero .chip .x:hover{color:#fff}
   .ag-hero .chip-add{border-style:dashed;border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.72)}
   .ag-hero .chip-add [contenteditable]:empty:before{color:rgba(255,255,255,.55)}
+  .ag-hero [contenteditable]:focus{color:var(--ink);-webkit-text-fill-color:var(--ink);background:#fff;caret-color:var(--accent)}
+  .ag-hero [contenteditable]:focus:empty:before{color:var(--faint);-webkit-text-fill-color:var(--faint)}
   .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:6px}
   .title{font-family:"Newsreader",serif;font-weight:600;font-size:34px;line-height:1.12;letter-spacing:-.01em;margin:8px 0 10px;max-width:640px}
   .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;color:var(--muted);font-size:14px}
@@ -715,7 +717,7 @@
   <div class="card">
     <div class="sec-head">
       <span class="sec-title">Topics</span>
-      <span class="sec-hint">click a box to edit &middot; hover for tools</span>
+      <span class="sec-hint">click a box to edit &middot; in a sub-point, Enter adds a bullet &middot; Tab indents</span>
     </div>
     <div id="topics"></div>
     <button class="addtopic" id="addTopic"><span class="p">+</span> Add topic</button>
@@ -870,6 +872,7 @@ function load(){
   DB.clients.forEach(c=>{if(!Array.isArray(c.colors))c.colors=[];c.colors=c.colors.filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);if(typeof c.archived!=="boolean")c.archived=false;if(typeof c.internalDefault!=="boolean")c.internalDefault=false;});
   if(!Array.isArray(DB.series)||!DB.series.length){const s=newSeries("Meeting 1",true);DB.series=[s];DB.activeId=s.id;}
   DB.series.forEach(s=>{if(s.category!=="internal")s.category="client";if(typeof s.recurring!=="boolean")s.recurring=true;if(s.recurring&&!s.cadence)s.cadence="weekly";if(typeof s.archived!=="boolean")s.archived=false;if(!("clientId" in s))s.clientId=null;if(s.clientId&&!clientById(s.clientId))s.clientId=null;if(!Array.isArray(s.log))s.log=[];if(!("gcalId" in s))s.gcalId=null;if(!("gcalLink" in s))s.gcalLink=null;});
+  DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.topics))s.cur.topics.forEach(t=>{if(Array.isArray(t.points))t.points=t.points.map(p=>(p&&typeof p==="object")?{t:p.t||"",lvl:Math.max(0,Math.min(3,p.lvl|0))}:{t:(p||""),lvl:0});});});
   if(!DB.activeId||!activeSeries())DB.activeId=DB.series[0].id;
   bindActive();
 }
@@ -1114,6 +1117,10 @@ function renderAttendees(){
 }
 
 /* topics as green boxes */
+function ptText(p){return (p&&typeof p==="object")?(p.t||""):(p||"");}
+function ptLvl(p){return (p&&typeof p==="object"&&p.lvl)?Math.max(0,Math.min(3,p.lvl|0)):0;}
+function placeCaretEnd(el){try{const r=document.createRange();r.selectNodeContents(el);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
+let _focusPoint=null;
 function renderTopics(){
   const w=document.getElementById("topics");w.innerHTML="";
   S.topics.forEach((tp,i)=>{
@@ -1135,10 +1142,15 @@ function renderTopics(){
 
     const ul=document.createElement("ul");ul.className="points";
     tp.points.forEach((p,pi)=>{
-      const li=document.createElement("li");
+      const li=document.createElement("li");li.style.marginLeft=(ptLvl(p)*22)+"px";
       const b=document.createElement("span");b.className="b";
       const pt=document.createElement("span");pt.className="pt";pt.contentEditable=true;pt.dataset.ph="Sub-point";
-      bindRich(pt,()=>tp.points[pi],(html)=>{tp.points[pi]=html;});
+      bindRich(pt,()=>ptText(p),(html)=>{p.t=html;});
+      pt.addEventListener("keydown",ev=>{
+        if(ev.key==="Tab"){ev.preventDefault();const d=ev.shiftKey?-1:1;p.lvl=Math.max(0,Math.min(3,ptLvl(p)+d));save();_focusPoint={tid:tp.id,idx:pi};renderTopics();}
+        else if(ev.key==="Enter"){ev.preventDefault();tp.points.splice(pi+1,0,{t:"",lvl:ptLvl(p)});save();_focusPoint={tid:tp.id,idx:pi+1};renderTopics();}
+      });
+      if(_focusPoint&&_focusPoint.tid===tp.id&&_focusPoint.idx===pi){const el=pt;setTimeout(()=>{el.focus();placeCaretEnd(el);},0);}
       const rm=document.createElement("button");rm.className="rm";rm.textContent="\u00d7";
       rm.onclick=()=>{tp.points.splice(pi,1);save();renderTopics();};
       li.append(b,pt,rm);ul.append(li);
@@ -1146,7 +1158,7 @@ function renderTopics(){
 
     const ap=document.createElement("div");ap.className="addpoint";
     const apb=document.createElement("button");apb.className="ghost";apb.innerHTML='<span class="p">+</span> Sub-point';
-    apb.onclick=()=>{tp.points.push("");save();renderTopics();focusLast(box,".pt");};
+    apb.onclick=()=>{tp.points.push({t:"",lvl:0});save();renderTopics();focusLast(box,".pt");};
     ap.append(apb);
 
     const bt=document.createElement("div");bt.className="boxtools";
@@ -1161,6 +1173,7 @@ function renderTopics(){
 
     box.append(del,top,ul,ap,bt);w.append(box);
   });
+  _focusPoint=null;
 }
 const ICO_PIN='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 7 3 3v2H7v-2l3-3-1-7z"/><path d="M12 16v5"/></svg>';
 const ICO_CHEV='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 6l6 6-6 6M13 6l6 6-6 6"/></svg>';
@@ -1358,7 +1371,7 @@ function buildSummary(ag){
   L.push("\nTopics:");
   ag.topics.forEach(t=>{
     L.push("  \u25c6 "+(richToMd(t.title)||"(untitled)"));
-    t.points.filter(p=>(p||"").trim()).forEach(p=>L.push("      - "+richToMd(p)));
+    t.points.filter(p=>ptText(p).trim()).forEach(p=>L.push("      "+"  ".repeat(ptLvl(p))+"- "+richToMd(ptText(p))));
   });
   const act=(ag.actions||[]).filter(a=>(a.t||"").trim());
   if(act.length){L.push("\nActions:");act.forEach(a=>{const tl=a.topicId?labelFor(ag.topics,a.topicId):null;L.push("  ["+(a.done?"x":" ")+"] "+richToMd(a.t)+(a.owner?" \u2192 "+a.owner:"")+(tl?"  ("+tl+")":""));});}
@@ -1378,7 +1391,7 @@ document.getElementById("copyBtn").onclick=function(){copyText(buildSummary(S),t
 
 /* ---- history / recurring meetings ---- */
 function updateHistBtn(){const l=document.getElementById("histLink"),t=document.getElementById("histLinkText");if(!l)return;if(LOG.length){t.textContent=LOG.length+(LOG.length===1?" past agenda":" past agendas");l.style.display="";}else{l.style.display="none";}}
-function hasContent(){return (S.title||"").trim()||S.topics.some(t=>(t.title||"").trim()||t.points.some(p=>p.trim()))||S.actions.some(a=>a.t.trim())||(S.purpose||"").trim();}
+function hasContent(){return (S.title||"").trim()||S.topics.some(t=>(t.title||"").trim()||t.points.some(p=>ptText(p).trim()))||S.actions.some(a=>a.t.trim())||(S.purpose||"").trim();}
 
 function archiveWeek(){
   if(!hasContent()){alert("Nothing to archive yet \u2014 add a title or some topics first.");return;}
@@ -1390,7 +1403,7 @@ function archiveWeek(){
   LOG.unshift({id:uid(),at:Date.now(),label:(S.title||"Untitled meeting").trim(),date:fmtDateDisp(S.date),snap:snap});
   const carriedTopics=[];
   S.topics.forEach(tp=>{
-    if(tp.pushed)carriedTopics.push({id:uid(),title:tp.title,points:tp.points.slice(),standing:!!tp.standing,pushed:false});
+    if(tp.pushed)carriedTopics.push({id:uid(),title:tp.title,points:tp.points.map(p=>({t:ptText(p),lvl:ptLvl(p)})),standing:!!tp.standing,pushed:false});
     else if(tp.standing)carriedTopics.push({id:uid(),title:tp.title,points:[],standing:true,pushed:false});
   });
   if(!carriedTopics.length)carriedTopics.push({id:uid(),title:"",points:[]});
@@ -1456,8 +1469,8 @@ function snapshotHTML(ag){
   h+='<div class="snap-sec"><div class="snap-h">Topics</div>';
   ag.topics.forEach(t=>{
     h+='<div class="snap-topic">\u25c6 '+(richForSnap(t.title)||"(untitled)");
-    const pts=t.points.filter(p=>(p||"").trim());
-    if(pts.length)h+='<ul>'+pts.map(p=>'<li>'+richForSnap(p)+'</li>').join("")+'</ul>';
+    const pts=t.points.filter(p=>ptText(p).trim());
+    if(pts.length)h+='<ul>'+pts.map(p=>'<li style="margin-left:'+(ptLvl(p)*18)+'px">'+richForSnap(ptText(p))+'</li>').join("")+'</ul>';
     h+='</div>';
   });
   h+='</div>';
@@ -2062,7 +2075,7 @@ function initials(s){
   if(words.length===1)return words[0].slice(0,2).toUpperCase();
   return (words[0][0]+words[1][0]).toUpperCase();
 }
-function topicCount(a){return (a.topics||[]).filter(t=>(t.title||"").trim()||(t.points||[]).some(p=>(p||"").trim())).length;}
+function topicCount(a){return (a.topics||[]).filter(t=>(t.title||"").trim()||(t.points||[]).some(p=>ptText(p).trim())).length;}
 function openActionCount(a){return (a.actions||[]).filter(x=>!x.done&&(x.t||"").trim()).length;}
 function dtOf(s){const d=parseISO(s.cur&&s.cur.date);if(!d)return null;const tm=s.cur.time;if(tm){const m=/^(\d{1,2}):(\d{2})$/.exec(tm);if(m){d.setHours(+m[1],+m[2],0,0);return {ts:d.getTime(),timed:true};}}d.setHours(0,0,0,0);return {ts:d.getTime(),timed:false};}
 function relChip(s){
@@ -2259,7 +2272,7 @@ function seriesHasContent(s){
   const a=s.cur;if(!a)return false;
   return (a.title||"").trim()||(a.purpose||"").trim()||(a.attendees||[]).length||
     (a.actions||[]).some(x=>(x.t||"").trim())||(a.park||[]).some(p=>(p||"").trim())||
-    (a.topics||[]).some(t=>(t.title||"").trim()||(t.points||[]).some(p=>(p||"").trim()));
+    (a.topics||[]).some(t=>(t.title||"").trim()||(t.points||[]).some(p=>ptText(p).trim()));
 }
 function anyContent(){return DB.series.some(seriesHasContent);}
 function renderBackupBanner(){
