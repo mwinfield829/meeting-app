@@ -1184,11 +1184,7 @@ function renderTopics(){
     );
 
     if(collapsed){
-      const note=document.createElement("div");note.className="pt-collapsed-note";
-      const n=tp.points.filter(p=>ptText(p).trim()).length;
-      note.textContent="… "+n+" sub-point"+(n!==1?"s":"")+" hidden";
-      note.onclick=()=>{tp.collapsed=false;save();renderTopics();};
-      box.append(del,top,note,bt);
+      box.append(del,top,bt);
     }else{
       box.append(del,top,ul,ap,bt);
     }
