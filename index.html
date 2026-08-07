@@ -864,6 +864,7 @@ function load(){
   if(typeof DB.ui.gcal.clientId!=="string")DB.ui.gcal.clientId="";
   if(typeof DB.ui.gcal.connected!=="boolean")DB.ui.gcal.connected=false;
   if(typeof DB.ui.gcal.lastSyncAt!=="number")DB.ui.gcal.lastSyncAt=0;
+  if(typeof DB.ui.gcal.requireAttendees!=="boolean")DB.ui.gcal.requireAttendees=true;
   if(!Array.isArray(DB.gcalSkipped))DB.gcalSkipped=[];
   if(!Array.isArray(DB.clients))DB.clients=[];
   DB.clients.forEach(c=>{if(!Array.isArray(c.colors))c.colors=[];c.colors=c.colors.filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);if(typeof c.archived!=="boolean")c.archived=false;if(typeof c.internalDefault!=="boolean")c.internalDefault=false;});
@@ -2731,6 +2732,7 @@ function parseGcalStart(ev){
   return {date:"",time:""};
 }
 function gcalAttendees(ev){return (ev.attendees||[]).filter(a=>a&&!a.resource).map(a=>(a.displayName||a.email||"").trim()).filter(Boolean);}
+function hasGuests(ev){return (ev.attendees||[]).some(a=>a&&!a.resource&&!a.self);}
 function snapEvent(ev){const p=parseGcalStart(ev);return {key:eventKey(ev),summary:(ev.summary||"Untitled meeting").trim(),date:p.date,time:p.time,attendees:gcalAttendees(ev),link:ev.htmlLink||"",recurring:!!ev.recurringEventId,at:Date.now()};}
 function dedupeEvents(items){const m=new Map();items.forEach(ev=>{const k=eventKey(ev);if(!m.has(k))m.set(k,ev);});return [...m.values()];}
 function applyEventToSeries(s,ev){
@@ -2766,7 +2768,7 @@ async function syncCalendar(btn){
   const orig=btn?btn.innerHTML:null;if(btn){btn.disabled=true;btn.innerHTML=GCAL_ICON+" Syncing…";}
   try{
     const evs=dedupeEvents(await gcalFetch());
-    let updated=0;const review=[];
+    let updated=0,filtered=0;const review=[];
     evs.forEach(ev=>{
       const k=eventKey(ev);
       let s=DB.series.find(x=>x.gcalId===k);
@@ -2774,22 +2776,28 @@ async function syncCalendar(btn){
       if(s){applyEventToSeries(s,ev);updated++;return;}
       const sk=(DB.gcalSkipped||[]).find(z=>z.key===k);
       if(sk){Object.assign(sk,snapEvent(ev));return;}
+      if(DB.ui.gcal.requireAttendees&&!hasGuests(ev)){filtered++;return;}
       review.push(ev);
     });
     DB.ui.gcal.lastSyncAt=Date.now();DB.ui.gcal.connected=true;save();renderAll();
-    if(review.length)openReviewModal(review,updated);
-    else alert(updated?(updated+" meeting"+(updated!==1?"s":"")+" updated from your calendar. No new events to review."):"No new events in the next 30 days.");
+    if(review.length)openReviewModal(review,updated,filtered);
+    else{
+      const bits=[];
+      if(updated)bits.push(updated+" meeting"+(updated!==1?"s":"")+" updated from your calendar");
+      if(filtered)bits.push(filtered+" event"+(filtered!==1?"s":"")+" without guests skipped");
+      alert((bits.length?bits.join(". ")+". ":"")+"No new events to review.");
+    }
   }catch(e){alert("Calendar sync failed: "+((e&&e.message)||e));}
   finally{if(btn){btn.disabled=false;btn.innerHTML=orig;}}
 }
 
 /* ---- review modal (choose which new events to import) ---- */
 function closeReview(){const o=document.getElementById("gcOverlay");if(o)o.classList.remove("open");}
-function openReviewModal(review,updated){
+function openReviewModal(review,updated,filtered){
   const body=document.getElementById("gcBody");body.innerHTML="";
   const h=document.createElement("div");h.className="nm-title";h.textContent="New calendar events";body.append(h);
   const sub=document.createElement("div");sub.className="home-sub";sub.style.margin="0 0 8px";
-  sub.textContent=(updated?updated+" existing meeting"+(updated!==1?"s":"")+" updated. ":"")+review.length+" new event"+(review.length!==1?"s":"")+" in the next 30 days. Check the ones to add — unchecked ones go to “Not imported” in Settings.";
+  sub.textContent=(updated?updated+" existing meeting"+(updated!==1?"s":"")+" updated. ":"")+review.length+" new event"+(review.length!==1?"s":"")+" in the next 30 days. Check the ones to add — unchecked ones go to “Not imported” in Settings."+(filtered?" ("+filtered+" without guests skipped.)":"");
   body.append(sub);
   const list=document.createElement("div");list.className="gc-ev-list";
   const checks=[];
@@ -2874,6 +2882,12 @@ function renderCalendarTab(w){
   btns.append(sync,conn);
   if(connected){const dc=document.createElement("button");dc.className="bk-b ghost";dc.textContent="Disconnect";dc.onclick=gcalDisconnect;btns.append(dc);}
   foot.append(status,btns);card.append(foot);w.append(card);
+
+  const opt=document.createElement("label");opt.className="ce-check";opt.style.margin="12px 2px 0";
+  const ocb=document.createElement("input");ocb.type="checkbox";ocb.checked=DB.ui.gcal.requireAttendees!==false;
+  ocb.onchange=()=>{DB.ui.gcal.requireAttendees=ocb.checked;save();};
+  opt.append(ocb,document.createTextNode("Only suggest events that have guests (skip solo blocks)"));
+  w.append(opt);
 
   const skLab=document.createElement("div");skLab.className="set-lab";skLab.textContent="Not imported";w.append(skLab);
   const sk=(DB.gcalSkipped||[]).slice().sort((a,b)=>((a.date||"")<(b.date||"")?-1:1));
