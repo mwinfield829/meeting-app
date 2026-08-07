@@ -1144,8 +1144,9 @@ function renderTopics(){
     else{mk.innerHTML='<span class="dia"></span>';}
     const ti=document.createElement("div");ti.className="ttitle";ti.contentEditable=true;ti.dataset.ph="Topic";
     bindRich(ti,()=>tp.title,(html)=>{tp.title=html;});
-    const collapsed=!!tp.collapsed;
-    if(tp.points.length){
+    const meaningful=tp.points.some(p=>ptText(p).trim());
+    const collapsed=meaningful&&!!tp.collapsed;
+    if(meaningful){
       const tgl=document.createElement("button");tgl.className="pt-toggle"+(collapsed?" collapsed":"");tgl.innerHTML='<span class="cv">▾</span>';tgl.title=collapsed?"Show sub-points":"Hide sub-points";
       tgl.onclick=(e)=>{e.stopPropagation();tp.collapsed=!collapsed;save();renderTopics();};
       top.append(tgl,mk,ti);
