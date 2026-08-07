@@ -2906,7 +2906,10 @@ function renderCalendarTab(w){
     '<li>Copy the Client ID and paste it in the box above, then click <b>Connect</b>.</li>';
   info.append(ol);
   const note=document.createElement("div");note.className="bk-note";note.style.marginTop="4px";
-  note.innerHTML=BK_INFO+'<span>Google blocks sign-in from files opened directly, so serve the app locally: in Terminal run <code>python3 -m http.server 8000</code> from the app’s folder, then open <code>http://localhost:8000/executive-agenda.html</code>. The origin above updates to match wherever you open the app.</span>';
+  const hosted=/^https?:/.test(location.origin);
+  note.innerHTML=BK_INFO+(hosted
+    ? '<span>Add the origin shown above to your Google Cloud <b>Authorized JavaScript origins</b> exactly as written, then paste your Client ID and click <b>Connect</b>. Read-only — nothing on your calendar is changed.</span>'
+    : '<span>Google blocks sign-in from files opened directly. Open the app from its web address instead — the origin above updates to match wherever you open it.</span>');
   info.append(note);w.append(info);
 }
 
