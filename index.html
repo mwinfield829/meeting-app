@@ -453,6 +453,18 @@
   .tp-cell.sel{background:var(--accent);color:#fff}
   .tp-cell.sel:hover{background:var(--accent-ink);color:#fff}
   .ampm-row .tp-cell{font-family:"Archivo",sans-serif;font-weight:600;font-size:12px;padding:8px 0}
+  .ag-badge-btn{cursor:pointer}
+  .ag-badge-btn:hover{background:rgba(255,255,255,.26)}
+  .cadcv{font-size:9px;opacity:.85;margin-left:1px}
+  .cad-pop{padding:7px;width:224px}
+  .cad-lab{font-family:"Archivo",sans-serif;font-weight:700;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:3px 6px 6px}
+  .cad-opt{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-family:"Newsreader",serif;font-size:14.5px;color:var(--ink-soft);background:none;border:0;border-radius:7px;padding:8px 10px;cursor:pointer}
+  .cad-opt:hover{background:var(--accent-soft);color:var(--accent-ink)}
+  .cad-opt.cur{color:var(--accent);font-weight:500}
+  .cad-opt .ck{margin-left:auto;color:var(--accent)}
+  .cad-days{display:flex;gap:4px;padding:9px 4px 4px;margin-top:5px;border-top:1px solid var(--hair)}
+  .cad-day{flex:1;font-family:"Archivo",sans-serif;font-size:11px;font-weight:600;color:var(--muted);background:var(--paper);border:1px solid var(--hair-strong);border-radius:6px;padding:6px 0;cursor:pointer}
+  .cad-day.on{background:var(--accent);border-color:var(--accent);color:#fff}
 
 
   .attendees{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:14px 0 4px}
@@ -839,7 +851,7 @@ let S,LOG;
 let view="home";
 
 const KEY="execAgenda.v4";
-function newSeries(name,recurring,category,cadence,clientId){return {id:uid(),name:name||"Untitled series",recurring:recurring!==false,category:category==="internal"?"internal":"client",cadence:cadence||"weekly",clientId:clientId||null,cur:BLANK(),log:[]};}
+function newSeries(name,recurring,category,cadence,clientId){return {id:uid(),name:name||"Untitled series",recurring:recurring!==false,category:category==="internal"?"internal":"client",cadence:cadence||"weekly",cadenceDays:[],clientId:clientId||null,cur:BLANK(),log:[]};}
 function newClient(name){return {id:uid(),name:name||"Untitled client",colors:[],archived:false,internalDefault:false};}
 function clientById(id){return (DB.clients||[]).find(c=>c.id===id)||null;}
 function internalDefaultClient(){return (DB.clients||[]).find(c=>c.internalDefault&&!c.archived)||null;}
@@ -882,7 +894,7 @@ function load(){
   if(!Array.isArray(DB.clients))DB.clients=[];
   DB.clients.forEach(c=>{if(!Array.isArray(c.colors))c.colors=[];c.colors=c.colors.filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);if(typeof c.archived!=="boolean")c.archived=false;if(typeof c.internalDefault!=="boolean")c.internalDefault=false;});
   if(!Array.isArray(DB.series)||!DB.series.length){const s=newSeries("Meeting 1",true);DB.series=[s];DB.activeId=s.id;}
-  DB.series.forEach(s=>{if(s.category!=="internal")s.category="client";if(typeof s.recurring!=="boolean")s.recurring=true;if(s.recurring&&!s.cadence)s.cadence="weekly";if(typeof s.archived!=="boolean")s.archived=false;if(!("clientId" in s))s.clientId=null;if(s.clientId&&!clientById(s.clientId))s.clientId=null;if(!Array.isArray(s.log))s.log=[];if(!("gcalId" in s))s.gcalId=null;if(!("gcalLink" in s))s.gcalLink=null;});
+  DB.series.forEach(s=>{if(s.category!=="internal")s.category="client";if(typeof s.recurring!=="boolean")s.recurring=true;if(s.recurring&&!s.cadence)s.cadence="weekly";if(typeof s.archived!=="boolean")s.archived=false;if(!("clientId" in s))s.clientId=null;if(s.clientId&&!clientById(s.clientId))s.clientId=null;if(!Array.isArray(s.log))s.log=[];if(!("gcalId" in s))s.gcalId=null;if(!("gcalLink" in s))s.gcalLink=null;if(!Array.isArray(s.cadenceDays))s.cadenceDays=[];});
   DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.topics))s.cur.topics.forEach(t=>{if(Array.isArray(t.points))t.points=t.points.map(p=>(p&&typeof p==="object")?{t:p.t||"",lvl:Math.max(0,Math.min(3,p.lvl|0))}:{t:(p||""),lvl:0});});});
   if(!DB.activeId||!activeSeries())DB.activeId=DB.series[0].id;
   bindActive();
@@ -974,7 +986,7 @@ function openTimePicker(anchor){
 function pad2(n){return String(n).padStart(2,"0");}
 function toISO(dt){return dt.getFullYear()+"-"+pad2(dt.getMonth()+1)+"-"+pad2(dt.getDate());}
 function parseISO(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");return m?new Date(+m[1],+m[2]-1,+m[3]):null;}
-function nextDate(iso,cadence){
+function nextDate(iso,cadence,days){
   const d=parseISO(iso);if(!d||!cadence||cadence==="none")return "";
   const wd=new Set([1,3,5]);
   if(cadence==="daily")d.setDate(d.getDate()+1);
@@ -983,6 +995,7 @@ function nextDate(iso,cadence){
   else if(cadence==="monthly")d.setMonth(d.getMonth()+1);
   else if(cadence==="weekdays"){do{d.setDate(d.getDate()+1);}while(d.getDay()===0||d.getDay()===6);}
   else if(cadence==="mwf"){do{d.setDate(d.getDate()+1);}while(!wd.has(d.getDay()));}
+  else if(cadence==="days"){const set=new Set(days&&days.length?days:[d.getDay()]);let g=0;do{d.setDate(d.getDate()+1);g++;}while(!set.has(d.getDay())&&g<14);}
   else return "";
   return toISO(d);
 }
@@ -1077,12 +1090,56 @@ function applyTheme(){
 function setTheme(id){DB.ui.theme=id;save();applyTheme();applyBrand();renderRail();renderHome();renderSettings();}
 function setHero(g1,g2,bright){const r=document.documentElement.style;r.setProperty("--g1",g1);r.setProperty("--g2",g2);r.setProperty("--eyebrow",bright);r.setProperty("--hero-text","#fff");r.setProperty("--hero-sub","rgba(255,255,255,.82)");r.setProperty("--hero-icon","rgba(255,255,255,.9)");}
 function fillAgendaEye(){
-  const e=document.getElementById("agEye");if(!e)return;
-  const s=activeSeries();if(!s){e.innerHTML="";return;}
+  const e=document.getElementById("agEye");if(!e)return;e.innerHTML="";
+  const s=activeSeries();if(!s)return;
   const cl=s.clientId?clientById(s.clientId):null;
-  const cad=s.recurring?cadenceLabel(s.cadence):"One-off";
-  if(cl){e.innerHTML='<span class="ag-badge"><span class="d"></span> '+esc(cl.name)+' \u00b7 '+esc(cad)+'</span>';}
-  else{e.innerHTML='<span class="ag-badge"><span class="d"></span> '+(s.category==="internal"?"Internal":"Meeting")+' \u00b7 '+esc(cad)+'</span>';}
+  const cad=s.recurring?cadenceLabel(s.cadence,s.cadenceDays):"One-off";
+  const label=(cl?cl.name:(s.category==="internal"?"Internal":"Meeting"))+" \u00b7 "+cad;
+  const b=document.createElement("button");b.className="ag-badge ag-badge-btn";b.title="Change how this meeting repeats";
+  b.innerHTML='<span class="d"></span> '+esc(label)+' <span class="cadcv">\u25be</span>';
+  b.onclick=(ev)=>{ev.stopPropagation();openCadenceEditor(b);};
+  e.append(b);
+}
+function openCadenceEditor(anchor){
+  if(popAnchor===anchor){closePop();return;}
+  closePop();
+  const s=activeSeries();if(!s)return;
+  pop=document.createElement("div");pop.className="dt-pop cad-pop";
+  const OPTS=[["daily","Daily"],["weekdays","Every weekday"],["mwf","Mon / Wed / Fri"],["weekly","Weekly"],["biweekly","Every 2 weeks"],["monthly","Monthly"],["days","Specific weekdays"],["none","Doesn't repeat"]];
+  const cur=()=>s.recurring?s.cadence:"none";
+  function refreshBadge(){
+    const cl=s.clientId?clientById(s.clientId):null;
+    const cad=s.recurring?cadenceLabel(s.cadence,s.cadenceDays):"One-off";
+    const label=(cl?cl.name:(s.category==="internal"?"Internal":"Meeting"))+" \u00b7 "+cad;
+    anchor.innerHTML='<span class="d"></span> '+esc(label)+' <span class="cadcv">\u25be</span>';
+  }
+  function sync(){save();refreshBadge();renderRail();renderHome();draw();positionPop(anchor);}
+  function apply(val){
+    if(val==="none"){s.recurring=false;}
+    else{s.recurring=true;s.cadence=val;if(val==="days"&&(!Array.isArray(s.cadenceDays)||!s.cadenceDays.length)){const wd=parseISO(s.cur&&s.cur.date);s.cadenceDays=[wd?wd.getDay():1];}}
+    sync();
+  }
+  function draw(){
+    pop.innerHTML="";
+    const lab=document.createElement("div");lab.className="cad-lab";lab.textContent="Repeats";pop.append(lab);
+    OPTS.forEach(o=>{
+      const b=document.createElement("button");b.className="cad-opt"+(cur()===o[0]?" cur":"");
+      b.innerHTML='<span>'+o[1]+'</span>'+(cur()===o[0]?'<span class="ck">\u2713</span>':'');
+      b.onclick=(e)=>{e.stopPropagation();apply(o[0]);};
+      pop.append(b);
+    });
+    if(s.recurring&&s.cadence==="days"){
+      const wrap=document.createElement("div");wrap.className="cad-days";
+      ["S","M","T","W","T","F","S"].forEach((lbl,i)=>{
+        const on=(s.cadenceDays||[]).includes(i);
+        const c=document.createElement("button");c.className="cad-day"+(on?" on":"");c.textContent=lbl;
+        c.onclick=(e)=>{e.stopPropagation();const set=new Set(s.cadenceDays||[]);if(set.has(i)){if(set.size>1)set.delete(i);}else set.add(i);s.cadenceDays=[...set].sort((a,b)=>a-b);sync();};
+        wrap.append(c);
+      });
+      pop.append(wrap);
+    }
+  }
+  draw();armPop(anchor);
 }
 function applyBrand(){
   const t=themeDef();
@@ -1106,8 +1163,12 @@ function applyBrand(){
   }
   if(view==="agenda")fillAgendaEye();
 }
-const CADENCE_LABEL={none:"Doesn't repeat",daily:"Daily",weekdays:"Every weekday",mwf:"Mon / Wed / Fri",weekly:"Weekly",biweekly:"Every 2 weeks",monthly:"Monthly"};
-function cadenceLabel(c){return CADENCE_LABEL[c]||"Weekly";}
+const CADENCE_LABEL={none:"Doesn't repeat",daily:"Daily",weekdays:"Every weekday",mwf:"Mon / Wed / Fri",weekly:"Weekly",biweekly:"Every 2 weeks",monthly:"Monthly",days:"Specific weekdays"};
+const WD_SHORT=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function cadenceLabel(c,days){
+  if(c==="days"){const d=(days||[]).slice().sort((a,b)=>a-b);if(!d.length)return "Weekly";if(d.length===7)return "Every day";return d.map(x=>WD_SHORT[x]).join(", ");}
+  return CADENCE_LABEL[c]||"Weekly";
+}
 
 /* attendees */
 function renderAttendees(){
@@ -1418,7 +1479,7 @@ function hasContent(){return (S.title||"").trim()||S.topics.some(t=>(t.title||""
 function archiveWeek(){
   if(!hasContent()){alert("Nothing to archive yet \u2014 add a title or some topics first.");return;}
   const sr=activeSeries();
-  const nd=sr.recurring?nextDate(S.date,sr.cadence):"";
+  const nd=sr.recurring?nextDate(S.date,sr.cadence,sr.cadenceDays):"";
   const when=nd?(" The next meeting will be dated "+fmtDateDisp(nd)+"."):"";
   if(!confirm("Save this agenda to History and start the next meeting?"+when+"\n\nCarried forward: standing topics (heading only), pushed topics (with sub-points), open actions, and parked items.\nReset: everything else, and completed actions (kept in the archived copy)."))return;
   const snap=JSON.parse(JSON.stringify(S));
@@ -1597,7 +1658,7 @@ function renderRail(){
         const main=document.createElement("div");main.className="si-main";
         const dot=document.createElement("span");dot.className="si-dot";dot.style.background=cardColor(s);
         const nm=document.createElement("span");nm.className="si-name";nm.textContent=s.name||"Untitled meeting";
-        const cad=document.createElement("span");cad.className="si-cad";cad.textContent=s.recurring?cadenceLabel(s.cadence):"One-off";
+        const cad=document.createElement("span");cad.className="si-cad";cad.textContent=s.recurring?cadenceLabel(s.cadence,s.cadenceDays):"One-off";
         main.append(dot,nm,cad);main.onclick=()=>openMeeting(s.id);
         const mb=document.createElement("button");mb.className="si-menu";mb.innerHTML="\u22ef";mb.title="Meeting options";
         mb.onclick=(e)=>{e.stopPropagation();openSMenu(s,mb);};
@@ -1627,7 +1688,7 @@ function buildSMenuMain(s,m){
   const b3=document.createElement("button");b3.textContent=s.recurring?"Mark as one-off":"Mark as recurring";b3.onclick=()=>{closeSMenu();toggleRecurring(s);};
   m.append(b1,b2,b3);
   if(s.recurring){
-    const bc=document.createElement("button");bc.innerHTML="Repeats: "+cadenceLabel(s.cadence)+" &nbsp;\u203a";bc.onclick=(e)=>{e.stopPropagation();buildSMenuCadence(s,m);};
+    const bc=document.createElement("button");bc.innerHTML="Repeats: "+cadenceLabel(s.cadence,s.cadenceDays)+" &nbsp;\u203a";bc.onclick=(e)=>{e.stopPropagation();buildSMenuCadence(s,m);};
     m.append(bc);
   }
   const cl=s.clientId?clientById(s.clientId):null;
@@ -1750,7 +1811,7 @@ function meetingCard(s,showDay){
     topr.append(nm,rest);
     const bd=document.createElement("div");bd.className="mc-badges";
     const b=document.createElement("span");b.className="mc-badge arch";
-    b.textContent="Archived"+(s.log.length?" \u00b7 "+s.log.length+" past agenda"+(s.log.length!==1?"s":""):(s.recurring?" \u00b7 "+cadenceLabel(s.cadence).toLowerCase():" \u00b7 one-off"));
+    b.textContent="Archived"+(s.log.length?" \u00b7 "+s.log.length+" past agenda"+(s.log.length!==1?"s":""):(s.recurring?" \u00b7 "+cadenceLabel(s.cadence,s.cadenceDays).toLowerCase():" \u00b7 one-off"));
     bd.append(b);
     c.append(topr,bd);
     c.onclick=()=>openMeeting(s.id);
