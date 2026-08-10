@@ -702,6 +702,48 @@
   .gc-steps li{position:relative;padding:6px 0 6px 30px;font-size:13.5px;color:var(--ink-soft);line-height:1.55}
   .gc-steps li:before{counter-increment:s;content:counter(s);position:absolute;left:0;top:6px;width:20px;height:20px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font-family:"Archivo",sans-serif;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center}
   .gc-steps code,.bk-note code{font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--paper);border:1px solid var(--hair);border-radius:5px;padding:1px 6px}
+  /* ---- search ---- */
+  #railHome{margin-top:8px}
+  #railSearch svg{flex:none}
+  #searchOverlay{align-items:flex-start;padding-top:8vh}
+  .search-pal{background:var(--card);border:1px solid var(--hair);border-radius:14px;box-shadow:0 20px 60px rgba(22,24,29,.25);width:min(560px,100%);overflow:hidden;display:flex;flex-direction:column;max-height:80vh}
+  .search-pal .sbar{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--hair)}
+  .search-pal .sbar svg{width:19px;height:19px;color:var(--faint);flex:none}
+  .search-pal .sin{flex:1;min-width:0;border:0;outline:0;background:none;font-family:"Newsreader",serif;font-size:18px;color:var(--ink)}
+  .search-pal .scount{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint);white-space:nowrap}
+  .search-pal .res{overflow:auto;padding:6px 0}
+  .search-pal .foot{display:flex;justify-content:space-between;gap:10px;padding:10px 16px;border-top:1px solid var(--hair);font-size:11px;color:var(--faint)}
+  .kbd{font-family:"IBM Plex Mono",monospace;background:var(--paper);border:1px solid var(--hair);border-radius:4px;padding:1px 5px;color:var(--muted)}
+  .sr-hint{padding:26px 18px;text-align:center;color:var(--faint);font-style:italic;font-family:"Newsreader",serif;font-size:15px}
+  .sr-count{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--faint);padding:10px 16px 2px}
+  .sr-grp{display:flex;align-items:center;gap:8px;padding:11px 16px 4px}
+  .sr-dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .sr-name{font-family:"Archivo",sans-serif;font-size:12px;font-weight:600;color:var(--ink)}
+  .sr-gc{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);background:var(--paper);border-radius:99px;padding:1px 7px}
+  .sr-row{display:flex;align-items:baseline;gap:10px;padding:8px 16px 8px 24px;cursor:pointer}
+  .sr-row:hover{background:var(--paper)}
+  .sr-pill{flex:none;font-family:"Archivo",sans-serif;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;padding:2px 8px}
+  .sr-snip{flex:1;min-width:0;font-family:"Newsreader",serif;font-size:15px;color:var(--ink-soft);line-height:1.4}
+  .sr-date{flex:none;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--faint)}
+  .hl{background:#FBE7B0;color:#5A4304;border-radius:3px;padding:0 2px;font-weight:600}
+  .p-topic{background:var(--accent-soft);color:var(--accent-ink)}
+  .p-point{background:#EEF1F5;color:#4A5568}
+  .p-action{background:#F3E8F0;color:#7A2A60}
+  .p-parked{background:#F1EFE8;color:#5F5E5A}
+  .hist-tools{padding:12px 15px;border-bottom:1px solid rgba(255,255,255,.1);flex:none}
+  .hist-sbar{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:9px;padding:8px 11px}
+  .hist-sbar svg{color:rgba(255,255,255,.5);flex:none}
+  .hist-sin{flex:1;min-width:0;background:none;border:0;outline:0;color:#fff;font-family:"Newsreader",serif;font-size:15px}
+  .hist-sin::placeholder{color:rgba(255,255,255,.45)}
+  .hist-seg{display:flex;gap:3px;background:rgba(255,255,255,.06);border-radius:8px;padding:3px;margin-top:9px}
+  .hist-seg button{flex:1;font-family:"Archivo",sans-serif;font-size:11.5px;font-weight:600;color:rgba(255,255,255,.55);background:none;border:0;border-radius:6px;padding:6px 0;cursor:pointer}
+  .hist-seg button.on{background:rgba(255,255,255,.14);color:#fff}
+  #histBody .sr-count{color:rgba(255,255,255,.45)}
+  #histBody .sr-name{color:#fff}
+  #histBody .sr-gc{color:rgba(255,255,255,.5);background:rgba(255,255,255,.1)}
+  #histBody .sr-row:hover{background:rgba(255,255,255,.06)}
+  #histBody .sr-snip{color:rgba(255,255,255,.82)}
+  #histBody .sr-date{color:rgba(255,255,255,.4)}
 </style>
 </head>
 <body>
@@ -709,8 +751,8 @@
   <aside class="rail" id="rail">
     <div id="railMeetings">
       <div class="rail-brand"><span class="logo" id="brandLogo"></span><div style="flex:1;min-width:0"><b id="brandName">Exec Agenda</b><span id="brandSub">Meeting agendas</span></div><button class="rail-toggle" id="railToggle" title="Collapse" aria-label="Collapse meetings">&lsaquo;</button></div>
-      <div id="railPin"></div>
       <div id="railHome" class="rail-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg> Home</div>
+      <div id="railSearch" class="rail-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search</div>
       <div id="seriesList"></div>
       <button class="add-series" id="addSeries"><span style="font-size:14px;font-weight:700">+</span> New meeting</button>
       <button class="rail-settings" id="railSettings"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H22a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</button>
@@ -849,12 +891,21 @@
   </div>
 </div>
 
+<div class="nm-overlay" id="searchOverlay">
+  <div class="search-pal" role="dialog" aria-label="Search agendas">
+    <div class="sbar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="searchInput" class="sin" placeholder="Search all agendas" spellcheck="false"><span id="searchCount" class="scount"></span></div>
+    <div class="res" id="searchResults"></div>
+    <div class="foot"><span>Topics, sub-points, actions, parked &amp; people</span><span><span class="kbd">esc</span> to close</span></div>
+  </div>
+</div>
+
 <div class="hist-overlay" id="histOverlay"></div>
 <aside class="hist-drawer" id="histDrawer" aria-hidden="true">
   <div class="hist-head">
     <span class="hist-title">History</span>
     <button class="hist-x" id="histClose" aria-label="Close">&times;</button>
   </div>
+  <div class="hist-tools" id="histTools"></div>
   <div class="hist-body" id="histBody"></div>
 </aside>
 
@@ -1531,7 +1582,15 @@ document.getElementById("weekBtn").onclick=archiveWeek;
 document.getElementById("printBtn").onclick=()=>printSnapshot(S);
 
 /* drawer */
-function openHistory(){document.getElementById("histOverlay").classList.add("open");document.getElementById("histDrawer").classList.add("open");showHistList();}
+function openHistory(){
+  document.getElementById("histOverlay").classList.add("open");
+  document.getElementById("histDrawer").classList.add("open");
+  const s=activeSeries();const cl=s&&s.clientId?clientById(s.clientId):null;
+  histScope=cl?"client":"meeting";histSearchQuery="";
+  const tt=document.querySelector(".hist-title");if(tt)tt.textContent=cl?("History · "+cl.name):"History";
+  renderHistTools();
+  showHistList();
+}
 function closeHistory(){document.getElementById("histOverlay").classList.remove("open");document.getElementById("histDrawer").classList.remove("open");}
 document.getElementById("histLink").onclick=openHistory;
 document.getElementById("histClose").onclick=closeHistory;
@@ -1623,6 +1682,101 @@ function printSnapshot(ag){
 }
 window.addEventListener("afterprint",()=>{document.body.classList.remove("printing-snapshot");const pv=document.getElementById("printView");if(pv)pv.innerHTML="";});
 
+/* ================= search across agendas ================= */
+let histScope="client",histSearchQuery="";
+function pillClass(sec){return (sec==="Topic"||sec==="Title"||sec==="Purpose")?"p-topic":sec==="Sub-point"?"p-point":sec==="Action"?"p-action":sec==="Parked"?"p-parked":"p-point";}
+function hlText(plain,q){if(!q)return esc(plain);let out="",pos=0;const low=plain.toLowerCase(),ql=q.length;while(true){const j=low.indexOf(q,pos);if(j<0){out+=esc(plain.slice(pos));break;}out+=esc(plain.slice(pos,j))+'<span class="hl">'+esc(plain.slice(j,j+ql))+'</span>';pos=j+ql;}return out;}
+function shortWhen(w){return w||"";}
+function searchAgendas(query,seriesList){
+  const q=(query||"").trim().toLowerCase();if(!q)return [];
+  const groups=[];
+  (seriesList||[]).forEach(s=>{
+    const hits=[];
+    const scan=(ag,when,entryId,isCur)=>{
+      if(!ag)return;
+      const add=(section,text)=>{const plain=(text||"").trim();if(plain&&plain.toLowerCase().includes(q))hits.push({section,snippet:plain,when,entryId,isCur});};
+      add("Title",ag.title);add("Purpose",ag.purpose);
+      (ag.topics||[]).forEach(t=>{add("Topic",rtext(t.title));(t.points||[]).forEach(p=>add("Sub-point",rtext(ptText(p))));});
+      (ag.actions||[]).forEach(a=>{add("Action",rtext(a.t));add("Owner",a.owner);});
+      (ag.park||[]).forEach(p=>add("Parked",p));
+      (ag.attendees||[]).forEach(at=>add("Attendee",at));
+    };
+    scan(s.cur,"Current",null,true);
+    (s.log||[]).forEach(e=>scan(e.snap,e.date||fmtDate(e.at),e.id,false));
+    if(hits.length)groups.push({series:s,hits});
+  });
+  return groups;
+}
+function buildResults(container,groups,q,opener){
+  container.innerHTML="";
+  const ql=(q||"").trim().toLowerCase();
+  const total=groups.reduce((n,g)=>n+g.hits.length,0);
+  const count=document.createElement("div");count.className="sr-count";
+  count.textContent=total?(total+" match"+(total!==1?"es":"")+" · "+groups.length+" meeting"+(groups.length!==1?"s":"")):"No matches";
+  container.append(count);
+  groups.forEach(g=>{
+    const gh=document.createElement("div");gh.className="sr-grp";
+    const dot=document.createElement("span");dot.className="sr-dot";dot.style.background=cardColor(g.series);
+    const nm=document.createElement("span");nm.className="sr-name";nm.textContent=g.series.name||"Untitled meeting";
+    const gc=document.createElement("span");gc.className="sr-gc";gc.textContent=g.hits.length;
+    gh.append(dot,nm,gc);container.append(gh);
+    g.hits.forEach(h=>{
+      const row=document.createElement("div");row.className="sr-row";
+      const pill=document.createElement("span");pill.className="sr-pill "+pillClass(h.section);pill.textContent=h.section;
+      const snip=document.createElement("span");snip.className="sr-snip";snip.innerHTML=hlText(h.snippet,ql);
+      const date=document.createElement("span");date.className="sr-date";date.textContent=shortWhen(h.when);
+      row.append(pill,snip,date);row.onclick=()=>opener(g.series,h);
+      container.append(row);
+    });
+  });
+}
+function openSearchHit(series,h){
+  closeSearch();
+  openMeeting(series.id);
+  if(!h.isCur&&h.entryId){openHistory();showHistDetail(h.entryId);}
+  else{closeHistory();}
+}
+function openSearch(){
+  const o=document.getElementById("searchOverlay");if(!o)return;o.classList.add("open");
+  const inp=document.getElementById("searchInput");inp.value="";
+  runGlobalSearch();
+  setTimeout(()=>inp.focus(),30);
+}
+function closeSearch(){const o=document.getElementById("searchOverlay");if(o)o.classList.remove("open");}
+function runGlobalSearch(){
+  const res=document.getElementById("searchResults"),cnt=document.getElementById("searchCount");if(!res)return;
+  const q=document.getElementById("searchInput").value;
+  if(q.trim().length<2){res.innerHTML='<div class="sr-hint">Search every agenda — topics, sub-points, actions, parked items, and people.</div>';cnt.textContent="";return;}
+  const groups=searchAgendas(q,DB.series);
+  cnt.textContent=groups.reduce((n,g)=>n+g.hits.length,0)+" matches";
+  buildResults(res,groups,q,openSearchHit);
+}
+function renderHistTools(){
+  const w=document.getElementById("histTools");if(!w)return;w.innerHTML="";
+  const s=activeSeries();const cl=s&&s.clientId?clientById(s.clientId):null;
+  const bar=document.createElement("div");bar.className="hist-sbar";
+  bar.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
+  const inp=document.createElement("input");inp.className="hist-sin";inp.placeholder="Search "+(cl&&histScope==="client"?cl.name+"’s history":"this meeting");inp.value=histSearchQuery;
+  inp.addEventListener("input",()=>{histSearchQuery=inp.value;runHistSearch();});
+  bar.append(inp);w.append(bar);
+  if(cl){
+    const seg=document.createElement("div");seg.className="hist-seg";
+    const mk=(lbl,val)=>{const b=document.createElement("button");b.textContent=lbl;b.className=histScope===val?"on":"";b.onclick=()=>{histScope=val;renderHistTools();runHistSearch();};return b;};
+    seg.append(mk("This meeting","meeting"),mk("All "+cl.name,"client"));w.append(seg);
+  }
+}
+function runHistSearch(){
+  const b=document.getElementById("histBody");if(!b)return;
+  const q=histSearchQuery.trim();
+  if(q.length<2){showHistList();return;}
+  const s=activeSeries();
+  const scopeList=(histScope==="client"&&s&&s.clientId)?DB.series.filter(x=>x.clientId===s.clientId):[s];
+  const groups=searchAgendas(q,scopeList);
+  b.className="hist-body detail";b.innerHTML="";
+  const cont=document.createElement("div");cont.className="sr-wrap";cont.style.padding="4px 0 14px";b.append(cont);
+  buildResults(cont,groups,q,openSearchHit);
+}
+
 /* ---- view routing (home / agenda / settings) ---- */
 function applyView(){
   const home=view==="home",settings=view==="settings";
@@ -1655,20 +1809,7 @@ function deleteSeries(s){
 }
 function secOpen(key){return !(DB.ui.sec&&DB.ui.sec[key]);}
 function toggleSec(key){DB.ui.sec[key]=secOpen(key);save();renderRail();}
-function renderRailPin(){
-  const c=document.getElementById("railPin");if(!c)return;c.innerHTML="";
-  const s=nextUpcoming();if(!s){c.style.display="none";return;}
-  c.style.display="";
-  const line=[countdownLabel(s),(s.cur&&s.cur.time?fmtTimeDisp(s.cur.time):"")].filter(Boolean).join(" \u00b7 ");
-  const pin=document.createElement("button");pin.className="rail-pin";
-  pin.innerHTML='<div class="rp-k">UP NEXT</div><div class="rp-n"></div><div class="rp-t"></div>';
-  pin.querySelector(".rp-n").textContent=s.name||"Untitled meeting";
-  pin.querySelector(".rp-t").textContent=line;
-  pin.onclick=()=>openMeeting(s.id);
-  c.append(pin);
-}
 function renderRail(){
-  renderRailPin();
   const w=document.getElementById("seriesList");if(!w)return;w.innerHTML="";
   [["client","Client"],["internal","Internal"]].forEach(cat=>{
     const cid=cat[0];
@@ -1818,6 +1959,13 @@ function applyCollapse(){document.body.classList.toggle("rail-collapsed",!!(DB.u
 document.getElementById("railToggle").onclick=()=>{DB.ui.collapsed=true;applyCollapse();save();};
 document.getElementById("railOpen").onclick=()=>{DB.ui.collapsed=false;applyCollapse();save();};
 document.getElementById("railHome").onclick=goHome;
+document.getElementById("railSearch").onclick=openSearch;
+document.getElementById("searchInput").addEventListener("input",runGlobalSearch);
+document.getElementById("searchOverlay").onclick=(e)=>{if(e.target.id==="searchOverlay")closeSearch();};
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){closeSearch();}
+  else if(e.key==="/"){const t=e.target;if(t&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable))return;if(document.querySelector(".nm-overlay.open"))return;e.preventDefault();openSearch();}
+});
 
 /* ---- home view ---- */
 const IC_CAL='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
