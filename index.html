@@ -418,6 +418,7 @@
   .ag-hero .dt-input{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff}
   .ag-hero .dt-input:hover{background:rgba(255,255,255,.20)}
   .ag-hero .dt-input.placeholder{color:rgba(255,255,255,.62)}
+  .ag-hero .dt-input svg{color:inherit}
   .ag-hero .hist-link{color:var(--hero-sub);border-bottom-color:rgba(255,255,255,.3)}
   .ag-hero .hist-link:hover{color:#fff;border-bottom-color:#fff}
   .ag-hero .act-icon{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.22);color:#fff}
@@ -1252,8 +1253,13 @@ function cadenceLabel(c,days){
 }
 
 /* attendees */
+function sortAttendees(arr){
+  const isLL=e=>/@leanlayer\.com$/i.test((e||"").trim());
+  return arr.slice().sort((a,b)=>{const la=isLL(a),lb=isLL(b);if(la!==lb)return la?1:-1;return (a||"").toLowerCase().localeCompare((b||"").toLowerCase());});
+}
 function renderAttendees(){
   const w=document.getElementById("attendees");w.innerHTML="";
+  const _s=sortAttendees(S.attendees);if(_s.join("")!==S.attendees.join("")){S.attendees=_s;save();}
   S.attendees.forEach((a,i)=>{
     const c=document.createElement("span");c.className="chip";
     const t=document.createElement("span");t.contentEditable=true;t.textContent=a;
