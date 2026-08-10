@@ -167,6 +167,20 @@
   .ce-grip{flex:none;cursor:grab;color:var(--faint);font-size:13px;line-height:1;letter-spacing:-3px;padding:0 3px 0 0;user-select:none}
   .ce-grip:active{cursor:grabbing}
   .ce-slot.drop-hint{outline:2px dashed var(--accent);outline-offset:3px;border-radius:8px}
+  .ce-rn{width:16px;height:16px;border-radius:50%;flex:none;font-family:"Archivo",sans-serif;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .cep{border:1px solid var(--hair);border-radius:9px;overflow:hidden}
+  .cep-h{padding:9px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .cep-ht{font-family:"Newsreader",serif;font-weight:600;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .cep-cl{display:flex;align-items:center;gap:5px;flex:none}
+  .cep-ic{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.22)}
+  .cep-pri{height:22px;display:flex;align-items:center;gap:4px;padding:0 8px;border-radius:6px;background:#fff;font-family:"Archivo",sans-serif;font-weight:600;font-size:10px}
+  .cep-b{background:var(--paper);padding:10px}
+  .cep-box{border:1px solid;border-left-width:3px;border-radius:7px;padding:8px 10px}
+  .cep-tt{display:flex;align-items:center;gap:7px}
+  .cep-dia{width:7px;height:7px;border-radius:2px;transform:rotate(45deg);flex:none}
+  .cep-ttl{font-family:"Newsreader",serif;font-size:13px;color:var(--ink)}
+  .cep-bul{display:flex;align-items:center;gap:7px;margin:5px 0 0 16px;font-size:12px;color:var(--ink-soft)}
+  .cep-pb{width:4px;height:4px;border-radius:50%;flex:none}
   .ce-swatch{width:38px;height:34px;border-radius:8px;border:1px solid var(--hair-strong);padding:0;cursor:pointer;flex:none;overflow:hidden;background:none}
   .ce-hex{flex:1;font-family:"IBM Plex Mono",monospace;font-size:13.5px;color:var(--ink);border:1px solid var(--hair-strong);border-radius:8px;padding:9px 12px;outline:none;text-transform:uppercase}
   .ce-hex:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -2782,18 +2796,49 @@ function drawClientEditor(){
     slot.addEventListener("dragover",e=>{if(ceDragIndex===null)return;e.preventDefault();e.dataTransfer.dropEffect="move";slot.classList.add("drop-hint");});
     slot.addEventListener("dragleave",()=>slot.classList.remove("drop-hint"));
     slot.addEventListener("drop",e=>{e.preventDefault();slot.classList.remove("drop-hint");const from=ceDragIndex;ceDragIndex=null;if(from===null||from===i)return;const arr=c.colors;const m=arr.splice(from,1)[0];arr.splice(i,0,m);commit();});
-    const pick=document.createElement("input");pick.type="color";pick.className="ce-swatch";pick.value=/^#([0-9a-fA-F]{6})$/.test(hex)?hex:"#1C6B63";
-    pick.oninput=()=>{c.colors[i]=pick.value.toUpperCase();save();applyBrand();renderRail();renderHome();hexf.value=pick.value.toUpperCase();};
+    const hx0=/^#([0-9a-fA-F]{6})$/.test(hex)?hex.toUpperCase():"#1C6B63";
+    const rn=document.createElement("span");rn.className="ce-rn";rn.textContent=String(i+1);rn.title="Slot "+(i+1);rn.style.background=hx0;rn.style.color=onColor(hx0);
+    const pick=document.createElement("input");pick.type="color";pick.className="ce-swatch";pick.value=hx0;
+    pick.oninput=()=>{const v=pick.value.toUpperCase();c.colors[i]=v;rn.style.background=v;rn.style.color=onColor(v);hexf.value=v;save();applyBrand();renderRail();renderHome();drawPreview();};
     const hexf=document.createElement("input");hexf.className="ce-hex";hexf.value=(hex||"").toUpperCase();hexf.placeholder="#000000";
-    hexf.oninput=()=>{let v=hexf.value.trim();if(!v.startsWith("#"))v="#"+v;if(/^#([0-9a-fA-F]{6})$/.test(v)){c.colors[i]=v.toUpperCase();pick.value=v;save();applyBrand();renderRail();renderHome();}};
+    hexf.oninput=()=>{let v=hexf.value.trim();if(!v.startsWith("#"))v="#"+v;if(/^#([0-9a-fA-F]{6})$/.test(v)){v=v.toUpperCase();c.colors[i]=v;pick.value=v;rn.style.background=v;rn.style.color=onColor(v);save();applyBrand();renderRail();renderHome();drawPreview();}};
     const rm=document.createElement("button");rm.className="ce-rm";rm.innerHTML="\u00d7";rm.title="Remove color";rm.onclick=()=>{c.colors.splice(i,1);commit();};
-    slot.append(grip,pick,hexf,rm);slots.append(slot);
+    slot.append(grip,rn,pick,hexf,rm);slots.append(slot);
   });
   if((c.colors||[]).length<4){
     const add=document.createElement("button");add.className="ce-add";add.innerHTML="+ Add color";add.onclick=()=>{c.colors=c.colors||[];c.colors.push("#1C6B63");commit();};
     slots.append(add);
     const pre=document.createElement("div");pre.className="ce-presets";BRAND_PRESETS.forEach(p=>{const s=document.createElement("span");s.style.background=p;s.title=p;s.onclick=()=>{c.colors=c.colors||[];if(c.colors.length<4){c.colors.push(p);commit();}};pre.append(s);});body.append(pre);
   }
+  const pvL=document.createElement("div");pvL.className="tp-label";pvL.style.margin="18px 0 8px";pvL.textContent="Preview";body.append(pvL);
+  const prevWrap=document.createElement("div");body.append(prevWrap);
+  function drawPreview(){
+    prevWrap.innerHTML="";
+    const cols=(c.colors||[]).filter(x=>/^#([0-9a-fA-F]{6})$/.test(x));
+    if(!cols.length){const e=document.createElement("div");e.style.cssText="font-size:12px;color:var(--faint);font-style:italic;padding:4px 2px";e.textContent="Add a color to see the preview.";prevWrap.append(e);return;}
+    const n=cols.length,c0=cols[0],c1=cols[1%n],c2=cols[2%n],c4=cols.length>=4?cols[3]:null;
+    const heroA=shade(c0,-0.55),heroB=shade(c0,-0.12),wash=mixWhite(c0,0.95),edge=mixWhite(c0,0.62);
+    const primInk=c4?inkFor(c4):shade(c0,-0.28);
+    const iconBg=c4||"rgba(255,255,255,.14)",iconCol=c4?onColor(c4):"#fff",iconBd=c4?"rgba(255,255,255,.32)":"rgba(255,255,255,.22)";
+    const DL='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
+    const CP='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    const PL='<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>';
+    prevWrap.innerHTML='<div class="cep">'+
+      '<div class="cep-h" style="background:linear-gradient(120deg,'+heroA+','+heroB+')">'+
+        '<span class="cep-ht">'+esc(c.name||"Meeting")+'</span>'+
+        '<span class="cep-cl">'+
+          '<span class="cep-ic" style="background:'+iconBg+';color:'+iconCol+';border-color:'+iconBd+'">'+DL+'</span>'+
+          '<span class="cep-ic" style="background:'+iconBg+';color:'+iconCol+';border-color:'+iconBd+'">'+CP+'</span>'+
+          '<span class="cep-pri" style="color:'+primInk+'">'+PL+' Save</span>'+
+        '</span>'+
+      '</div>'+
+      '<div class="cep-b"><div class="cep-box" style="background:'+wash+';border-color:'+edge+';border-left-color:'+c1+'">'+
+        '<div class="cep-tt"><span class="cep-dia" style="background:'+c2+'"></span><span class="cep-ttl">Sample topic</span></div>'+
+        '<div class="cep-bul"><span class="cep-pb" style="background:'+c2+'"></span><span>Sub-point</span></div>'+
+      '</div></div>'+
+    '</div>';
+  }
+  drawPreview();
   const exL=document.createElement("div");exL.className="tp-label";exL.style.margin="18px 0 8px";exL.textContent="Extract from a logo";body.append(exL);
   if(!ceDetected.length){
     const dz=document.createElement("div");dz.className="th-drop";
