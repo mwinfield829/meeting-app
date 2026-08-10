@@ -164,6 +164,9 @@
   .cl-sec .cnt{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);background:var(--paper);border-radius:99px;padding:0 6px}
   .ce-slots{display:flex;flex-direction:column;gap:8px}
   .ce-slot{display:flex;align-items:center;gap:10px}
+  .ce-grip{flex:none;cursor:grab;color:var(--faint);font-size:13px;line-height:1;letter-spacing:-3px;padding:0 3px 0 0;user-select:none}
+  .ce-grip:active{cursor:grabbing}
+  .ce-slot.drop-hint{outline:2px dashed var(--accent);outline-offset:3px;border-radius:8px}
   .ce-swatch{width:38px;height:34px;border-radius:8px;border:1px solid var(--hair-strong);padding:0;cursor:pointer;flex:none;overflow:hidden;background:none}
   .ce-hex{flex:1;font-family:"IBM Plex Mono",monospace;font-size:13.5px;color:var(--ink);border:1px solid var(--hair-strong);border-radius:8px;padding:9px 12px;outline:none;text-transform:uppercase}
   .ce-hex:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -407,6 +410,10 @@
   .ag-hero .act-icon:hover{background:rgba(255,255,255,.20);border-color:rgba(255,255,255,.35);color:#fff}
   .ag-hero .act-primary{background:#fff;color:var(--accent-ink);border-color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.18)}
   .ag-hero .act-primary:hover{background:rgba(255,255,255,.9);border-color:rgba(255,255,255,.9)}
+  body.c4-actions .ag-hero .act-icon{background:var(--c4);border-color:rgba(255,255,255,.30);color:var(--c4-on)}
+  body.c4-actions .ag-hero .act-icon:hover{background:var(--c4);border-color:rgba(255,255,255,.55);color:var(--c4-on)}
+  body.c4-actions .ag-hero .act-primary{background:#fff;border-color:#fff;color:var(--c4-ink)}
+  body.c4-actions .ag-hero .act-primary:hover{background:rgba(255,255,255,.92);border-color:rgba(255,255,255,.92);color:var(--c4-ink)}
   .ag-hero .attendees{margin:14px 0 0}
   .ag-hero .chip{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);color:#fff}
   .ag-hero .chip .x{color:rgba(255,255,255,.6)}
@@ -1053,6 +1060,8 @@ function relLum(hex){
   return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];
 }
 function contrastRatio(h1,h2){const a=relLum(h1),b=relLum(h2);const hi=Math.max(a,b),lo=Math.min(a,b);return (hi+0.05)/(lo+0.05);}
+function onColor(hex){return relLum(hex)>0.55?"#141821":"#ffffff";}
+function inkFor(hex){let h=hex,g=0;while(contrastRatio(h,"#ffffff")<4.5&&g<14){h=shade(h,-0.12);g++;}return h;}
 function heroContrastOK(g1,g2,dark){
   const text=dark?"#141821":"#ffffff";
   // worst case: for white text the lighter stop; for dark text the darker stop
@@ -1157,8 +1166,10 @@ function applyBrand(){
     r.setProperty("--accent-wash",mixWhite(c0,0.95));
     r.setProperty("--green-edge",mixWhite(c0,0.62));
     setHero(shade(c0,-0.55),shade(c0,-0.12),mixWhite(c0,0.45));
+    const hasC4=c.length>=4;document.body.classList.toggle("c4-actions",hasC4);
+    if(hasC4){r.setProperty("--c4",c[3]);r.setProperty("--c4-on",onColor(c[3]));r.setProperty("--c4-ink",inkFor(c[3]));}
   }else{
-    setAccentFamily(t.accent);
+    setAccentFamily(t.accent);document.body.classList.remove("c4-actions");
     const light=t.heroText!=="dark";const rr=document.documentElement.style;
     rr.setProperty("--g1",t.g1);rr.setProperty("--g2",t.g2);rr.setProperty("--eyebrow",t.bright);
     rr.setProperty("--hero-text",light?"#fff":"#141821");rr.setProperty("--hero-sub",light?"rgba(255,255,255,.82)":"rgba(20,24,33,.72)");rr.setProperty("--hero-icon",light?"rgba(255,255,255,.9)":"#141821");
@@ -2751,7 +2762,7 @@ function clientRow(c,archived){
 }
 
 /* ---- client editor modal ---- */
-let ceId=null,ceDetected=[],ceThumb="";
+let ceId=null,ceDetected=[],ceThumb="",ceDragIndex=null;
 function openClientEditor(id){ceId=id;ceDetected=[];ceThumb="";drawClientEditor();document.getElementById("ceOverlay").classList.add("open");}
 function closeClientEditor(){ceId=null;const o=document.getElementById("ceOverlay");if(o)o.classList.remove("open");}
 function drawClientEditor(){
@@ -2765,12 +2776,18 @@ function drawClientEditor(){
   function commit(){c.colors=(c.colors||[]).filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);save();applyBrand();renderRail();renderHome();drawClientEditor();}
   (c.colors||[]).forEach((hex,i)=>{
     const slot=document.createElement("div");slot.className="ce-slot";
+    const grip=document.createElement("span");grip.className="ce-grip";grip.textContent="\u22ee\u22ee";grip.title="Drag to reorder";grip.draggable=true;
+    grip.addEventListener("dragstart",e=>{ceDragIndex=i;e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",String(i));}catch(_){}});
+    grip.addEventListener("dragend",()=>{ceDragIndex=null;document.querySelectorAll(".ce-slot.drop-hint").forEach(x=>x.classList.remove("drop-hint"));});
+    slot.addEventListener("dragover",e=>{if(ceDragIndex===null)return;e.preventDefault();e.dataTransfer.dropEffect="move";slot.classList.add("drop-hint");});
+    slot.addEventListener("dragleave",()=>slot.classList.remove("drop-hint"));
+    slot.addEventListener("drop",e=>{e.preventDefault();slot.classList.remove("drop-hint");const from=ceDragIndex;ceDragIndex=null;if(from===null||from===i)return;const arr=c.colors;const m=arr.splice(from,1)[0];arr.splice(i,0,m);commit();});
     const pick=document.createElement("input");pick.type="color";pick.className="ce-swatch";pick.value=/^#([0-9a-fA-F]{6})$/.test(hex)?hex:"#1C6B63";
     pick.oninput=()=>{c.colors[i]=pick.value.toUpperCase();save();applyBrand();renderRail();renderHome();hexf.value=pick.value.toUpperCase();};
     const hexf=document.createElement("input");hexf.className="ce-hex";hexf.value=(hex||"").toUpperCase();hexf.placeholder="#000000";
     hexf.oninput=()=>{let v=hexf.value.trim();if(!v.startsWith("#"))v="#"+v;if(/^#([0-9a-fA-F]{6})$/.test(v)){c.colors[i]=v.toUpperCase();pick.value=v;save();applyBrand();renderRail();renderHome();}};
     const rm=document.createElement("button");rm.className="ce-rm";rm.innerHTML="\u00d7";rm.title="Remove color";rm.onclick=()=>{c.colors.splice(i,1);commit();};
-    slot.append(pick,hexf,rm);slots.append(slot);
+    slot.append(grip,pick,hexf,rm);slots.append(slot);
   });
   if((c.colors||[]).length<4){
     const add=document.createElement("button");add.className="ce-add";add.innerHTML="+ Add color";add.onclick=()=>{c.colors=c.colors||[];c.colors.push("#1C6B63");commit();};
