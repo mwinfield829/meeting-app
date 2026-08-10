@@ -522,6 +522,13 @@
   .points li .pt{flex:1}
   .points li .rm{opacity:0}
   .points li:hover .rm{opacity:1}
+  .pt-del{flex:none;width:16px;height:16px;border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;margin-top:3px}
+  .pt-del .dot{width:5px;height:5px;border-radius:50%;background:var(--accent-3);opacity:.7;transition:opacity .1s}
+  .pt-del .xx{position:absolute;color:#c0392b;font-size:16px;line-height:1;opacity:0;transition:opacity .1s}
+  .points li:hover .pt-del .dot,.park li:hover .pt-del .dot{opacity:0}
+  .points li:hover .pt-del .xx,.park li:hover .pt-del .xx{opacity:1}
+  .park li .pt-del{margin-top:4px}
+  .park li .pt-del .dot{background:var(--faint)}
   .pt-toggle{flex:none;border:0;background:none;color:var(--muted);cursor:pointer;font-size:10px;line-height:1;padding:4px;margin-top:3px;border-radius:5px;transition:.12s}
   .pt-toggle:hover{color:var(--accent);background:#fff}
   .pt-toggle .cv{display:inline-block;transition:transform .15s}
@@ -1308,7 +1315,9 @@ function renderTopics(){
     const ul=document.createElement("ul");ul.className="points";
     tp.points.forEach((p,pi)=>{
       const li=document.createElement("li");li.style.marginLeft=(ptLvl(p)*22)+"px";
-      const b=document.createElement("span");b.className="b";
+      const del=document.createElement("button");del.className="pt-del";del.title="Delete sub-point";
+      del.innerHTML='<span class="dot"></span><span class="xx">×</span>';
+      del.onclick=()=>{tp.points.splice(pi,1);save();renderTopics();};
       const pt=document.createElement("span");pt.className="pt";pt.contentEditable=true;pt.dataset.ph="Sub-point";
       bindRich(pt,()=>ptText(p),(html)=>{p.t=html;});
       pt.addEventListener("keydown",ev=>{
@@ -1316,9 +1325,7 @@ function renderTopics(){
         else if(ev.key==="Enter"){ev.preventDefault();tp.points.splice(pi+1,0,{t:"",lvl:ptLvl(p)});save();_focusPoint={tid:tp.id,idx:pi+1};renderTopics();}
       });
       if(_focusPoint&&_focusPoint.tid===tp.id&&_focusPoint.idx===pi){const el=pt;setTimeout(()=>{el.focus();placeCaretEnd(el);},0);}
-      const rm=document.createElement("button");rm.className="rm";rm.textContent="\u00d7";
-      rm.onclick=()=>{tp.points.splice(pi,1);save();renderTopics();};
-      li.append(b,pt,rm);ul.append(li);
+      li.append(del,pt);ul.append(li);
     });
 
     const ap=document.createElement("div");ap.className="addpoint";
@@ -1409,12 +1416,12 @@ function renderPark(){
   const w=document.getElementById("park");w.innerHTML="";
   S.park.forEach((p,i)=>{
     const li=document.createElement("li");
-    const b=document.createElement("span");b.className="b";
+    const del=document.createElement("button");del.className="pt-del";del.title="Delete item";
+    del.innerHTML='<span class="dot"></span><span class="xx">\u00d7</span>';
+    del.onclick=()=>{S.park.splice(i,1);save();renderPark();};
     const pt=document.createElement("span");pt.className="pt";pt.contentEditable=true;pt.dataset.ph="Deferred item";pt.textContent=p;
     pt.addEventListener("input",()=>{S.park[i]=pt.textContent;save();});
-    const rm=document.createElement("button");rm.className="rm";rm.textContent="\u00d7";
-    rm.onclick=()=>{S.park.splice(i,1);save();renderPark();};
-    li.append(b,pt,rm);w.append(li);
+    li.append(del,pt);w.append(li);
   });
 }
 
