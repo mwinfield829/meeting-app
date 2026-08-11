@@ -595,11 +595,6 @@
   .atag.empty-tag:hover{color:var(--accent);border-color:var(--accent)}
   .atag.set{color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--green-edge)}
   .atag.set:hover{border-color:var(--accent)}
-  .tagmenu{position:absolute;z-index:100;background:#fff;border:1px solid var(--hair-strong);border-radius:10px;box-shadow:0 8px 28px rgba(22,24,29,.14);padding:5px;min-width:150px;max-width:250px;max-height:260px;overflow:auto}
-  .tagmenu-item{display:block;width:100%;text-align:left;font-family:"Newsreader",serif;font-size:15px;color:var(--ink-soft);background:none;border:0;border-radius:6px;padding:7px 9px;cursor:pointer;transition:.1s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tagmenu-item:hover{background:var(--accent-soft);color:var(--accent-ink)}
-  .tagmenu-item.cur{color:var(--accent);font-weight:500}
-  .tagmenu-item.none{font-family:"Archivo",sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--hair);border-radius:6px 6px 0 0;margin-bottom:3px}
 
   .park{list-style:none;padding:0;margin:0}
   .park li{display:flex;gap:9px;align-items:flex-start;padding:3px 0;font-size:16px;color:var(--ink-soft)}
@@ -679,7 +674,7 @@
   #printView{display:none}
   @media print{
     body{background:#fff;padding:0;font-size:12pt}
-    .agenda-actions,.hist-link,.dt-pop,.boxtools,.ghost,.addtopic,.chip .x,.rm,.tb-del,.chip-add,.sec-hint,.atag.empty-tag,.tagmenu,.hist-overlay,.hist-drawer,.rail,.rail-open,.smenu{display:none!important}
+    .agenda-actions,.hist-link,.dt-pop,.boxtools,.ghost,.addtopic,.chip .x,.rm,.tb-del,.chip-add,.sec-hint,.atag.empty-tag,.hist-overlay,.hist-drawer,.rail,.rail-open,.smenu{display:none!important}
     #main{padding:0}
     .card{box-shadow:none;border-color:#ccc;break-inside:avoid}
     .topicbox{break-inside:avoid}
@@ -1027,6 +1022,7 @@ function load(){
   if(!Array.isArray(DB.series)||!DB.series.length){const s=newSeries("Meeting 1",true);DB.series=[s];DB.activeId=s.id;}
   DB.series.forEach(s=>{if(s.category!=="internal")s.category="client";if(typeof s.recurring!=="boolean")s.recurring=true;if(s.recurring&&!s.cadence)s.cadence="weekly";if(typeof s.archived!=="boolean")s.archived=false;if(!("clientId" in s))s.clientId=null;if(s.clientId&&!clientById(s.clientId))s.clientId=null;if(!Array.isArray(s.log))s.log=[];if(!("gcalId" in s))s.gcalId=null;if(!("gcalLink" in s))s.gcalLink=null;if(!Array.isArray(s.cadenceDays))s.cadenceDays=[];});
   DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.topics))s.cur.topics.forEach(t=>{if(Array.isArray(t.points))t.points=t.points.map(p=>(p&&typeof p==="object")?{t:p.t||"",lvl:Math.max(0,Math.min(3,p.lvl|0))}:{t:(p||""),lvl:0});});});
+  DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.actions))s.cur.actions.forEach(a=>{if(!("clientId" in a))a.clientId=(seriesCat(s)==="internal")?null:(s.clientId||null);if(!("due" in a))a.due="";});});
   if(!DB.activeId||!activeSeries())DB.activeId=DB.series[0].id;
   bindActive();
 }
@@ -1404,7 +1400,7 @@ function renderTopics(){
       mkTool('<span class="ic">\u2191</span>',"Move up",()=>move(i,-1)),
       mkTool('<span class="ic">\u2193</span>',"Move down",()=>move(i,1)),
       mkTool((S.activeId===tp.id?"\u25c9 Current":"Mark current"),"Mark as current topic",()=>{S.activeId=S.activeId===tp.id?null:tp.id;save();renderTopics();},S.activeId===tp.id),
-      mkTool('<span class="ic">\u25c7</span> Action',"Capture an action from this topic",()=>{S.actions.push({id:uid(),t:"",owner:"",done:false,topicId:tp.id});save();renderActions();focusLast(document.getElementById("acts"),".atext");}),
+      mkTool('<span class="ic">\u25c7</span> Action',"Capture an action from this topic",()=>{S.actions.push({id:uid(),t:"",owner:"",done:false,due:"",clientId:defaultActionClient()});save();renderActions();focusLast(document.getElementById("acts"),".atext");}),
       mkTool(ICO_PIN+(tp.standing?" Standing":" Make standing"),"Standing topic \u2014 recreated each meeting",()=>{tp.standing=!tp.standing;save();renderTopics();},tp.standing),
       mkTool(ICO_CHEV+(tp.pushed?" Pushing":" Push to next"),"Carry this topic to the next meeting",()=>{tp.pushed=!tp.pushed;save();renderTopics();},tp.pushed,"push")
     );
@@ -1441,13 +1437,12 @@ function renderActions(){
     due.innerHTML=IC_CAL+(a.due?(" Due "+fmtDue(a.due)):" Due date");
     due.title="Set a due date";
     due.onclick=(e)=>{e.stopPropagation();openDatePicker(due,()=>a.due,(v)=>{a.due=v;renderActions();});};
+    const acl=a.clientId?clientById(a.clientId):null;
     const tag=document.createElement("button");
-    if(a.topicId&&topicLabel(a.topicId)===null){a.topicId=null;}
-    const lbl=a.topicId?topicLabel(a.topicId):null;
-    tag.className="atag "+(lbl?"set":"empty-tag");
-    tag.textContent=lbl?("\u25c6 "+shorten(lbl)):"+ topic";
-    tag.title="Link this action to a topic";
-    tag.onclick=(e)=>{e.stopPropagation();openTagMenu(a,tag);};
+    tag.className="atag "+(acl?"set":"empty-tag");
+    tag.textContent=acl?("\u25c6 "+shorten(acl.name)):"+ client";
+    tag.title="Assign this action to a client";
+    tag.onclick=(e)=>{e.stopPropagation();openActionClientMenu(a,tag,renderActions);};
     const rm=document.createElement("button");rm.className="rm";rm.textContent="\u00d7";
     rm.onclick=()=>{S.actions.splice(i,1);save();renderActions();};
     row.append(box,t,due,tag,ow,rm);w.append(row);
@@ -1457,31 +1452,8 @@ function renderActions(){
 
 /* topic tag helpers + picker */
 function rtext(html){const d=document.createElement("div");d.innerHTML=sanitizeRich(html);return (d.textContent||"").trim();}
-function labelFor(topics,id){const i=topics.findIndex(t=>t.id===id);if(i<0)return null;const t=rtext(topics[i].title);return t||("Topic "+(i+1));}
-function topicLabel(id){return labelFor(S.topics,id);}
 function shorten(s){return s.length>22?s.slice(0,21)+"\u2026":s;}
-function closeTagMenu(){const m=document.getElementById("tagmenu");if(m)m.remove();document.removeEventListener("click",tagOutside);document.removeEventListener("keydown",tagEsc);}
-function tagOutside(e){if(!e.target.closest("#tagmenu"))closeTagMenu();}
-function tagEsc(e){if(e.key==="Escape")closeTagMenu();}
-function openTagMenu(a,anchor){
-  closeTagMenu();
-  const menu=document.createElement("div");menu.className="tagmenu";menu.id="tagmenu";
-  const none=document.createElement("button");none.className="tagmenu-item none";none.textContent="No topic";
-  none.onclick=()=>{a.topicId=null;save();closeTagMenu();renderActions();};
-  menu.append(none);
-  S.topics.forEach((t,i)=>{
-    const it=document.createElement("button");it.className="tagmenu-item"+(a.topicId===t.id?" cur":"");
-    it.textContent=rtext(t.title)||("Topic "+(i+1));
-    it.onclick=()=>{a.topicId=t.id;save();closeTagMenu();renderActions();};
-    menu.append(it);
-  });
-  document.body.append(menu);
-  const r=anchor.getBoundingClientRect();
-  menu.style.top=(window.scrollY+r.bottom+6)+"px";
-  menu.style.left=(window.scrollX+r.left)+"px";
-  if(menu.getBoundingClientRect().right>window.innerWidth-8){menu.style.left=(window.scrollX+window.innerWidth-8-menu.offsetWidth)+"px";}
-  setTimeout(()=>{document.addEventListener("click",tagOutside);document.addEventListener("keydown",tagEsc);},0);
-}
+function defaultActionClient(){const s=activeSeries();if(!s)return null;return seriesCat(s)==="internal"?null:(s.clientId||null);}
 
 /* parking */
 function renderPark(){
@@ -1500,7 +1472,7 @@ function renderPark(){
 function focusLast(scope,sel){const els=scope.querySelectorAll(sel);const el=els[els.length-1];if(el)el.focus();}
 
 document.getElementById("addTopic").onclick=()=>{S.topics.push({id:uid(),title:"",points:[]});save();renderTopics();focusLast(document.getElementById("topics"),".ttitle");};
-document.getElementById("addAct").onclick=()=>{S.actions.push({id:uid(),t:"",owner:"",done:false,topicId:null});save();renderActions();focusLast(document.getElementById("acts"),".atext");};
+document.getElementById("addAct").onclick=()=>{S.actions.push({id:uid(),t:"",owner:"",done:false,due:"",clientId:defaultActionClient()});save();renderActions();focusLast(document.getElementById("acts"),".atext");};
 document.getElementById("addPark").onclick=()=>{S.park.push("");save();renderPark();focusLast(document.getElementById("park"),".pt");};
 
 
@@ -1623,7 +1595,7 @@ function buildSummary(ag){
     t.points.filter(p=>ptText(p).trim()).forEach(p=>L.push("      "+"  ".repeat(ptLvl(p))+"- "+richToMd(ptText(p))));
   });
   const act=(ag.actions||[]).filter(a=>(a.t||"").trim());
-  if(act.length){L.push("\nActions:");act.forEach(a=>{const tl=a.topicId?labelFor(ag.topics,a.topicId):null;L.push("  ["+(a.done?"x":" ")+"] "+richToMd(a.t)+(a.owner?" \u2192 "+a.owner:"")+(tl?"  ("+tl+")":""));});}
+  if(act.length){L.push("\nActions:");act.forEach(a=>{const c=a.clientId?clientById(a.clientId):null;const dd=a.due?(" due "+fmtDue(a.due)):"";L.push("  ["+(a.done?"x":" ")+"] "+richToMd(a.t)+(a.owner?" \u2192 "+a.owner:"")+dd+(c?"  ("+c.name+")":""));});}
   const pk=(ag.park||[]).filter(p=>p.trim());
   if(pk.length){L.push("\nParked:");pk.forEach(p=>L.push("  \u2022 "+p));}
   return L.join("\n");
@@ -1656,7 +1628,7 @@ function archiveWeek(){
     else if(tp.standing)carriedTopics.push({id:uid(),title:tp.title,points:[],standing:true,pushed:false});
   });
   if(!carriedTopics.length)carriedTopics.push({id:uid(),title:"",points:[]});
-  const carriedActions=S.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",topicId:null}));
+  const carriedActions=S.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",clientId:a.clientId||null}));
   const carriedPark=S.park.filter(p=>p.trim());
   const next=BLANK();
   next.title=S.title;next.attendees=S.attendees.slice();next.time=S.time;next.date=nd;
@@ -1734,8 +1706,8 @@ function snapshotHTML(ag){
   const act=(ag.actions||[]).filter(a=>(a.t||"").trim());
   if(act.length){
     h+='<div class="snap-sec"><div class="snap-h">Actions</div>';
-    act.forEach(a=>{const tl=a.topicId?labelFor(ag.topics,a.topicId):null;
-      h+='<div class="snap-act'+(a.done?" done":"")+'"><span class="mk">'+(a.done?"\u2713":"\u25cb")+'</span> '+richForSnap(a.t)+(a.owner?' <span class="o">\u2192 '+esc(a.owner)+'</span>':'')+(tl?' <span class="tg">\u25c6 '+esc(tl)+'</span>':'')+'</div>';
+    act.forEach(a=>{const c=a.clientId?clientById(a.clientId):null;
+      h+='<div class="snap-act'+(a.done?" done":"")+'"><span class="mk">'+(a.done?"\u2713":"\u25cb")+'</span> '+richForSnap(a.t)+(a.owner?' <span class="o">\u2192 '+esc(a.owner)+'</span>':'')+(a.due?' <span class="o">due '+esc(fmtDue(a.due))+'</span>':'')+(c?' <span class="tg">\u25c6 '+esc(c.name)+'</span>':'')+'</div>';
     });
     h+='</div>';
   }
@@ -3379,17 +3351,20 @@ function actionsRows(){
   if(f==="completed"||f==="all")pushHistory(a=>a.done);
   return rows;
 }
-function rowClientObj(r){const id=r.standalone?r.action.clientId:(r.series&&r.series.clientId);return id?clientById(id):null;}
+function rowClientObj(r){let id=r.action&&r.action.clientId;if(!id&&r.archived&&r.series)id=r.series.clientId;return id?clientById(id):null;}
 function isInternalClientId(id){const c=id?clientById(id):null;return !!(c&&c.internalDefault);}
 function seriesCat(s){if(s&&s.clientId&&isInternalClientId(s.clientId))return "internal";return (s&&s.category==="internal")?"internal":"client";}
-function rowCat(r){const id=r.standalone?r.action.clientId:(r.series&&r.series.clientId);if(isInternalClientId(id))return "internal";if(r.standalone)return r.action.clientId?"client":"internal";return r.series?r.series.category:"internal";}
+function rowCat(r){const c=rowClientObj(r);if(!c)return "internal";return c.internalDefault?"internal":"client";}
 function rowColor(r){const c=rowClientObj(r);if(c&&c.colors&&c.colors[0])return c.colors[0];return rowCat(r)==="internal"?"#534AB7":"#BA7517";}
-function openActionClientMenu(a,anchor){
+function openActionClientMenu(a,anchor,after){
   closeSMenu();
+  const done=()=>{save();closeSMenu();(after||renderActionsPage)();updateActionsNav();};
   const m=document.createElement("div");m.className="smenu";m.id="smenu";
-  const none=document.createElement("button");none.textContent=(a.clientId?"":"✓ ")+"No client (internal)";none.onclick=()=>{a.clientId=null;save();closeSMenu();renderActionsPage();};
+  const none=document.createElement("button");none.textContent=(a.clientId?"":"✓ ")+"No client (internal)";none.onclick=()=>{a.clientId=null;done();};
   m.append(none);
-  activeClients().forEach(c=>{const b=document.createElement("button");b.textContent=(a.clientId===c.id?"✓ ":"")+c.name;b.onclick=()=>{a.clientId=c.id;save();closeSMenu();renderActionsPage();};m.append(b);});
+  activeClients().forEach(c=>{const b=document.createElement("button");b.textContent=(a.clientId===c.id?"✓ ":"")+c.name;b.onclick=()=>{a.clientId=c.id;done();};m.append(b);});
+  const nw=document.createElement("button");nw.style.color="var(--accent)";nw.textContent="+ New client…";nw.onclick=()=>{const n=(prompt("New client name")||"").trim();if(n){const c=newClient(n);DB.clients.push(c);a.clientId=c.id;done();}else closeSMenu();};
+  m.append(nw);
   document.body.append(m);
   const r=anchor.getBoundingClientRect();m.style.top=(window.scrollY+r.bottom+4)+"px";m.style.left=(window.scrollX+Math.min(r.left,window.innerWidth-m.offsetWidth-8))+"px";
   setTimeout(()=>{document.addEventListener("click",sOutside);document.addEventListener("keydown",sEsc);},0);
@@ -3411,8 +3386,16 @@ function actionRowEl(r){
     meta.append(clb,own);mid.append(tx,meta);
   }else{
     const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");tx.innerHTML=richForSnap(r.action.t)||"(untitled)";
-    const meta=document.createElement("div");meta.className="apo-meta";
-    meta.textContent=[r.series?(r.series.name||"Untitled meeting"):"",r.action.owner?("→ "+r.action.owner):null,r.archived?("archived "+r.when):null].filter(Boolean).join("  ·  ");
+    const meta=document.createElement("div");meta.className="apo-meta apo-mrow";
+    const src=document.createElement("span");
+    src.textContent=[r.series?(r.series.name||"Untitled meeting"):"",r.action.owner?("→ "+r.action.owner):null,r.archived?("archived "+r.when):null].filter(Boolean).join("  ·  ");
+    meta.append(src);
+    if(!r.archived){
+      const cl=rowClientObj(r);
+      const clb=document.createElement("button");clb.className="apo-cltag"+(cl?" set":"");clb.textContent=cl?("◆ "+cl.name):"+ client";clb.title="Assign this action to a client";
+      clb.onclick=(e)=>{e.stopPropagation();openActionClientMenu(r.action,clb);};
+      meta.append(clb);
+    }
     mid.append(tx,meta);
   }
   row.append(cb,mid);
