@@ -1005,7 +1005,7 @@ function load(){
   }catch(e){DB={series:[],activeId:null,ui:{collapsed:false},clients:[]};}
   if(!DB.ui)DB.ui={collapsed:false};
   if(!DB.ui.homeFilter)DB.ui.homeFilter="week";
-  if(!DB.ui.actFilter)DB.ui.actFilter="open";
+  if(["open","completed","all"].indexOf(DB.ui.actFilter)<0)DB.ui.actFilter="open";
   if(!DB.ui.sec)DB.ui.sec={};
   if(!DB.ui.setTab)DB.ui.setTab="clients";
   if(typeof DB.ui.displayName!=="string")DB.ui.displayName="Michael";
@@ -2478,7 +2478,6 @@ function renderHome(){
   const banner=renderBackupBanner();if(banner)w.append(banner);
   const archivedCount=DB.series.filter(s=>s.archived).length;
   let filter=DB.ui.homeFilter;if(filter!=="all"&&filter!=="archived")filter="week";
-  if(filter==="archived"&&!archivedCount)filter="week";
 
   const hero=document.createElement("div");hero.className="hh";
   const htop=document.createElement("div");htop.className="hh-top";
@@ -2500,7 +2499,7 @@ function renderHome(){
   hero.append(htop);w.append(hero);
 
   const seg=document.createElement("div");seg.className="home-toggle";seg.style.marginTop="20px";
-  const opts=[["week","This week"],["all","All"]];if(archivedCount)opts.push(["archived","Archived"]);
+  const opts=[["week","This week"],["all","All"],["archived","Archived"]];
   opts.forEach(o=>{const b=document.createElement("button");b.className=filter===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.homeFilter=o[0];save();renderHome();};seg.append(b);});
   w.append(seg);
   if(filter==="week"){
@@ -2509,7 +2508,8 @@ function renderHome(){
     else{const grid=document.createElement("div");grid.className="home-grid";up.forEach(s=>grid.append(meetingCard(s,true)));w.append(grid);}
   }else if(filter==="archived"){
     const arch=DB.series.filter(s=>s.archived).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-    const grid=document.createElement("div");grid.className="home-grid";arch.forEach(s=>grid.append(meetingCard(s,false)));w.append(grid);
+    if(!arch.length){w.append(emptyBox("No archived meetings","Archive a meeting from its ⋯ menu in the sidebar to park it here — it leaves your sidebar and home but keeps all of its history."));}
+    else{const grid=document.createElement("div");grid.className="home-grid";arch.forEach(s=>grid.append(meetingCard(s,false)));w.append(grid);}
   }else{
     const active=DB.series.filter(s=>!s.archived);
     if(!active.length){w.append(emptyBox("Create your first meeting","Add a client or internal meeting and start building its agenda.",true));}
@@ -3358,12 +3358,9 @@ function goActions(){view="actions";applyView();applyBrand();renderActionsPage()
 function actionsRows(){
   const f=DB.ui.actFilter||"open";const rows=[];
   const pushHistory=(pred)=>{DB.series.forEach(s=>{(s.log||[]).forEach(e=>{(((e.snap&&e.snap.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(pred&&!pred(a))return;rows.push({series:s,action:a,archived:true,when:e.date||fmtDate(e.at),entryId:e.id});});});});};
-  if(f==="archived"){pushHistory(null);}
-  else{
-    DB.series.filter(s=>!s.archived).forEach(s=>{(((s.cur&&s.cur.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:s,action:a,archived:false});});});
-    (DB.standaloneActions||[]).forEach(a=>{if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:null,action:a,archived:false,standalone:true});});
-    if(f==="completed"||f==="all")pushHistory(a=>a.done);
-  }
+  DB.series.filter(s=>!s.archived).forEach(s=>{(((s.cur&&s.cur.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:s,action:a,archived:false});});});
+  (DB.standaloneActions||[]).forEach(a=>{if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:null,action:a,archived:false,standalone:true});});
+  if(f==="completed"||f==="all")pushHistory(a=>a.done);
   return rows;
 }
 function rowClientObj(r){const id=r.standalone?r.action.clientId:(r.series&&r.series.clientId);return id?clientById(id):null;}
@@ -3431,10 +3428,10 @@ function renderActionsPage(){
   head.append(add);
   w.append(head);
   const seg=document.createElement("div");seg.className="home-toggle";seg.style.margin="14px 0 4px";
-  [["open","Open"],["completed","Completed"],["all","All"],["archived","Archived"]].forEach(o=>{const b=document.createElement("button");b.className=(DB.ui.actFilter||"open")===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.actFilter=o[0];save();renderActionsPage();};seg.append(b);});
+  [["open","Open"],["completed","Completed"],["all","All"]].forEach(o=>{const b=document.createElement("button");b.className=(DB.ui.actFilter||"open")===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.actFilter=o[0];save();renderActionsPage();};seg.append(b);});
   w.append(seg);
   const rows=actionsRows();
-  if(!rows.length){const f=DB.ui.actFilter||"open";w.append(emptyBox("Nothing here",f==="archived"?"Actions from meetings you’ve saved to history will appear here.":"Add an action above, or capture one inside a meeting’s “Actions captured” section."));return;}
+  if(!rows.length){const f=DB.ui.actFilter||"open";w.append(emptyBox("Nothing here",f==="completed"?"Actions you check off will collect here.":"Add an action above, or capture one inside a meeting’s “Actions captured” section."));return;}
   const clientRows=rows.filter(r=>rowCat(r)==="client"),internalRows=rows.filter(r=>rowCat(r)==="internal");
   if(clientRows.length){
     const c=document.createElement("div");c.className="apo-cat";c.textContent="Client";w.append(c);
