@@ -1982,7 +1982,7 @@ function fillClientSelect(){
   const cat=segValue("nmCat");
   sel.innerHTML="";
   const none=document.createElement("option");none.value="";none.textContent="No client / brand";sel.append(none);
-  activeClients().forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.name+(c.internalDefault?" (internal default)":"");sel.append(o);});
+  activeClients().forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.name+(c.internalDefault?" (internal)":"");sel.append(o);});
   const nw=document.createElement("option");nw.value="__new";nw.textContent="+ New client\u2026";sel.append(nw);
   const def=cat==="internal"?internalDefaultClient():null;
   sel.value=def?def.id:"";
@@ -2670,7 +2670,7 @@ function openClientMenu(c,anchor){
   closeSMenu();
   const m=document.createElement("div");m.className="smenu";m.id="smenu";
   const edit=document.createElement("button");edit.textContent="Edit branding\u2026";edit.onclick=()=>{closeSMenu();openClientEditor(c.id);};
-  const def=document.createElement("button");def.textContent=c.internalDefault?"Remove as internal default":"Set as internal default";def.onclick=()=>{closeSMenu();setInternalDefault(c,!c.internalDefault);renderSettings();};
+  const def=document.createElement("button");def.textContent=c.internalDefault?"Unset internal company":"Set as internal company";def.onclick=()=>{closeSMenu();setInternalDefault(c,!c.internalDefault);renderSettings();};
   const arch=document.createElement("button");arch.className="danger";arch.textContent="Archive client\u2026";arch.onclick=()=>{closeSMenu();confirmArchiveClient(c);};
   m.append(edit,def,arch);
   document.body.append(m);
@@ -2980,7 +2980,7 @@ function clientRow(c,archived){
   const cols=(c.colors||[]).filter(x=>x);
   for(let i=0;i<4;i++){const s=document.createElement("span");if(cols[i]){s.style.background=cols[i];}else{s.className="empty";}sw.append(s);}
   const nm=document.createElement("div");nm.className="cl-name";nm.textContent=c.name;
-  if(c.internalDefault){const bd=document.createElement("span");bd.className="cl-badge";bd.textContent="Internal default";nm.append(bd);}
+  if(c.internalDefault){const bd=document.createElement("span");bd.className="cl-badge";bd.textContent="Internal";nm.append(bd);}
   const cnt=document.createElement("div");cnt.className="cl-count";const n=clientMeetingCount(c.id);cnt.textContent=n+" meeting"+(n!==1?"s":"");
   row.append(sw,nm,cnt);
   if(archived){
@@ -3086,7 +3086,7 @@ function drawClientEditor(){
   }
   const chk=document.createElement("label");chk.className="ce-check";
   const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!c.internalDefault;cb.onchange=()=>{setInternalDefault(c,cb.checked);renderSettings();};
-  chk.append(cb,document.createTextNode("Use as internal default (new internal meetings brand to this)"));body.append(chk);
+  chk.append(cb,document.createTextNode("Our internal company (e.g. Lean Layer) — internal meetings brand to this, and its actions group under Internal"));body.append(chk);
   const foot=document.createElement("div");foot.className="nm-actions";foot.style.justifyContent="space-between";
   const del=document.createElement("button");del.className="nm-btn";del.style.color="#c0392b";del.textContent="Delete client";del.onclick=()=>deleteClient(c);
   const done=document.createElement("button");done.className="nm-btn primary";done.textContent="Done";done.onclick=()=>{commit();closeClientEditor();renderSettings();};
@@ -3366,7 +3366,8 @@ function actionsRows(){
   return rows;
 }
 function rowClientObj(r){const id=r.standalone?r.action.clientId:(r.series&&r.series.clientId);return id?clientById(id):null;}
-function rowCat(r){if(r.standalone)return r.action.clientId?"client":"internal";return r.series?r.series.category:"internal";}
+function isInternalClientId(id){const c=id?clientById(id):null;return !!(c&&c.internalDefault);}
+function rowCat(r){const id=r.standalone?r.action.clientId:(r.series&&r.series.clientId);if(isInternalClientId(id))return "internal";if(r.standalone)return r.action.clientId?"client":"internal";return r.series?r.series.category:"internal";}
 function rowColor(r){const c=rowClientObj(r);if(c&&c.colors&&c.colors[0])return c.colors[0];return rowCat(r)==="internal"?"#534AB7":"#BA7517";}
 function openActionClientMenu(a,anchor){
   closeSMenu();
