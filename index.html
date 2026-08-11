@@ -782,6 +782,9 @@
   .apo-meta{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);margin-top:4px}
   .apo-due{flex:none;font-family:"Archivo",sans-serif;font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;background:var(--paper);color:var(--ink-soft);white-space:nowrap;margin-top:1px}
   .apo-due.over{background:#FCEBEB;color:#A32D2D}
+  .apo-due.edit{cursor:pointer;border:1px solid var(--hair-strong);background:var(--paper)}
+  .apo-due.edit.empty{border-style:dashed;color:var(--faint);background:none}
+  .apo-due.edit.over{border-color:#F0C9C4;background:#FCEBEB;color:#A32D2D}
 </style>
 </head>
 <body>
@@ -3357,7 +3360,15 @@ function actionRowEl(r){
   const meta=document.createElement("div");meta.className="apo-meta";
   meta.textContent=[r.series.name||"Untitled meeting",r.action.owner?("→ "+r.action.owner):null,r.archived?("archived "+r.when):null].filter(Boolean).join("  ·  ");
   mid.append(tx,meta);row.append(cb,mid);
-  if(r.action.due){const d=document.createElement("span");const over=!r.archived&&!r.action.done&&isOverdue(r.action.due);d.className="apo-due"+(over?" over":"");d.textContent="Due "+fmtDue(r.action.due);row.append(d);}
+  if(r.archived){
+    if(r.action.due){const d=document.createElement("span");d.className="apo-due";d.textContent="Due "+fmtDue(r.action.due);row.append(d);}
+  }else{
+    const d=document.createElement("button");const over=!r.action.done&&isOverdue(r.action.due);
+    d.className="apo-due edit"+(r.action.due?(over?" over":""):" empty");
+    d.textContent=r.action.due?("Due "+fmtDue(r.action.due)):"Due date";d.title="Set a due date";
+    d.onclick=(e)=>{e.stopPropagation();openDatePicker(d,()=>r.action.due,(v)=>{r.action.due=v;renderActionsPage();});};
+    row.append(d);
+  }
   row.onclick=()=>{openMeeting(r.series.id);if(r.archived&&r.entryId){openHistory();showHistDetail(r.entryId);}};
   return row;
 }
