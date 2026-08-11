@@ -1884,7 +1884,7 @@ function renderRail(){
   const w=document.getElementById("seriesList");if(!w)return;w.innerHTML="";
   [["client","Client"],["internal","Internal"]].forEach(cat=>{
     const cid=cat[0];
-    const arr=DB.series.filter(s=>s.category===cid&&!s.archived).slice().sort(byNextDate);
+    const arr=DB.series.filter(s=>seriesCat(s)===cid&&!s.archived).slice().sort(byNextDate);
     if(!arr.length)return;
     const cWrap=document.createElement("div");cWrap.className="rail-cat";
     const cHead=document.createElement("div");cHead.className="rail-cat-head"+(secOpen(cid)?"":" sec-collapsed");
@@ -3367,6 +3367,7 @@ function actionsRows(){
 }
 function rowClientObj(r){const id=r.standalone?r.action.clientId:(r.series&&r.series.clientId);return id?clientById(id):null;}
 function isInternalClientId(id){const c=id?clientById(id):null;return !!(c&&c.internalDefault);}
+function seriesCat(s){if(s&&s.clientId&&isInternalClientId(s.clientId))return "internal";return (s&&s.category==="internal")?"internal":"client";}
 function rowCat(r){const id=r.standalone?r.action.clientId:(r.series&&r.series.clientId);if(isInternalClientId(id))return "internal";if(r.standalone)return r.action.clientId?"client":"internal";return r.series?r.series.category:"internal";}
 function rowColor(r){const c=rowClientObj(r);if(c&&c.colors&&c.colors[0])return c.colors[0];return rowCat(r)==="internal"?"#534AB7":"#BA7517";}
 function openActionClientMenu(a,anchor){
