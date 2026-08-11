@@ -571,7 +571,11 @@
   .total b{color:var(--ink);font-weight:500}
 
   .acts{display:flex;flex-direction:column;gap:2px}
-  .act{display:flex;gap:11px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--hair)}
+  .act{display:grid;grid-template-columns:20px minmax(0,1fr) 108px 150px 92px 18px;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid var(--hair)}
+  .act>.box{margin-top:0}
+  .act>.act-due,.act>.atag,.act>.aowner{justify-self:start;margin-top:0;max-width:100%}
+  .act>.aowner{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .act>.atag{overflow:hidden;text-overflow:ellipsis}
   .act:last-child{border-bottom:0}
   .act .box{flex:none;margin-top:4px;width:18px;height:18px;border:1.5px solid var(--hair-strong);border-radius:5px;cursor:pointer;transition:.12s;display:flex;align-items:center;justify-content:center}
   .act .box:hover{border-color:var(--accent)}
@@ -785,6 +789,14 @@
   .apo-due.edit{cursor:pointer;border:1px solid var(--hair-strong);background:var(--paper)}
   .apo-due.edit.empty{border-style:dashed;color:var(--faint);background:none}
   .apo-due.edit.over{border-color:#F0C9C4;background:#FCEBEB;color:#A32D2D}
+  .apo-mrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .apo-cltag{font-family:"Archivo",sans-serif;font-size:10px;font-weight:600;letter-spacing:.02em;border-radius:99px;padding:2px 9px;cursor:pointer;border:1px dashed var(--hair-strong);background:none;color:var(--muted)}
+  .apo-cltag:hover{border-color:var(--accent);color:var(--accent)}
+  .apo-cltag.set{border-style:solid;border-color:var(--green-edge);background:var(--accent-soft);color:var(--accent-ink)}
+  .apo-own{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);outline:none;min-width:44px}
+  .apo-own:before{content:"→ ";color:var(--faint)}
+  .apo-del{border:0;background:none;color:var(--faint);font-size:15px;line-height:1;cursor:pointer;flex:none;padding:0 4px;align-self:flex-start;margin-top:2px}
+  .apo-del:hover{color:#c0392b}
 </style>
 </head>
 <body>
@@ -1009,6 +1021,7 @@ function load(){
   if(typeof DB.ui.gcal.lastSyncAt!=="number")DB.ui.gcal.lastSyncAt=0;
   if(typeof DB.ui.gcal.requireAttendees!=="boolean")DB.ui.gcal.requireAttendees=true;
   if(!Array.isArray(DB.gcalSkipped))DB.gcalSkipped=[];
+  if(!Array.isArray(DB.standaloneActions))DB.standaloneActions=[];
   if(!Array.isArray(DB.clients))DB.clients=[];
   DB.clients.forEach(c=>{if(!Array.isArray(c.colors))c.colors=[];c.colors=c.colors.filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);if(typeof c.archived!=="boolean")c.archived=false;if(typeof c.internalDefault!=="boolean")c.internalDefault=false;});
   if(!Array.isArray(DB.series)||!DB.series.length){const s=newSeries("Meeting 1",true);DB.series=[s];DB.activeId=s.id;}
@@ -1624,7 +1637,7 @@ function archiveWeek(){
     else if(tp.standing)carriedTopics.push({id:uid(),title:tp.title,points:[],standing:true,pushed:false});
   });
   if(!carriedTopics.length)carriedTopics.push({id:uid(),title:"",points:[]});
-  const carriedActions=S.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,topicId:null}));
+  const carriedActions=S.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",topicId:null}));
   const carriedPark=S.park.filter(p=>p.trim());
   const next=BLANK();
   next.title=S.title;next.attendees=S.attendees.slice();next.time=S.time;next.date=nd;
@@ -3340,7 +3353,7 @@ function renderCalendarTab(w){
 function fmtDue(iso){const d=parseISO(iso);return d?d.toLocaleDateString(undefined,{month:"short",day:"numeric"}):"";}
 function isOverdue(iso){const d=parseISO(iso);if(!d)return false;const t=new Date();t.setHours(0,0,0,0);return d.getTime()<t.getTime();}
 function byDue(a,b){const da=a.action.due||"",db=b.action.due||"";if(da&&db)return da<db?-1:(da>db?1:0);if(da)return -1;if(db)return 1;return 0;}
-function updateActionsNav(){const el=document.getElementById("railActionsCount");if(!el)return;const n=DB.series.filter(s=>!s.archived).reduce((a,s)=>a+(((s.cur&&s.cur.actions)||[]).filter(x=>!x.done&&(x.t||"").trim()).length),0);el.textContent=n;el.style.display=n?"":"none";}
+function updateActionsNav(){const el=document.getElementById("railActionsCount");if(!el)return;let n=DB.series.filter(s=>!s.archived).reduce((a,s)=>a+(((s.cur&&s.cur.actions)||[]).filter(x=>!x.done&&(x.t||"").trim()).length),0);n+=(DB.standaloneActions||[]).filter(x=>!x.done&&(x.t||"").trim()).length;el.textContent=n;el.style.display=n?"":"none";}
 function goActions(){view="actions";applyView();applyBrand();renderActionsPage();renderRail();}
 function actionsRows(){
   const f=DB.ui.actFilter||"open";const rows=[];
@@ -3348,18 +3361,45 @@ function actionsRows(){
     DB.series.forEach(s=>{(s.log||[]).forEach(e=>{(((e.snap&&e.snap.actions)||[])).forEach(a=>{if((a.t||"").trim())rows.push({series:s,action:a,archived:true,when:e.date||fmtDate(e.at),entryId:e.id});});});});
   }else{
     DB.series.filter(s=>!s.archived).forEach(s=>{(((s.cur&&s.cur.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:s,action:a,archived:false});});});
+    (DB.standaloneActions||[]).forEach(a=>{if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:null,action:a,archived:false,standalone:true});});
   }
   return rows;
 }
+function rowClientObj(r){const id=r.standalone?r.action.clientId:(r.series&&r.series.clientId);return id?clientById(id):null;}
+function rowCat(r){if(r.standalone)return r.action.clientId?"client":"internal";return r.series?r.series.category:"internal";}
+function rowColor(r){const c=rowClientObj(r);if(c&&c.colors&&c.colors[0])return c.colors[0];return rowCat(r)==="internal"?"#534AB7":"#BA7517";}
+function openActionClientMenu(a,anchor){
+  closeSMenu();
+  const m=document.createElement("div");m.className="smenu";m.id="smenu";
+  const none=document.createElement("button");none.textContent=(a.clientId?"":"✓ ")+"No client (internal)";none.onclick=()=>{a.clientId=null;save();closeSMenu();renderActionsPage();};
+  m.append(none);
+  activeClients().forEach(c=>{const b=document.createElement("button");b.textContent=(a.clientId===c.id?"✓ ":"")+c.name;b.onclick=()=>{a.clientId=c.id;save();closeSMenu();renderActionsPage();};m.append(b);});
+  document.body.append(m);
+  const r=anchor.getBoundingClientRect();m.style.top=(window.scrollY+r.bottom+4)+"px";m.style.left=(window.scrollX+Math.min(r.left,window.innerWidth-m.offsetWidth-8))+"px";
+  setTimeout(()=>{document.addEventListener("click",sOutside);document.addEventListener("keydown",sEsc);},0);
+}
 function actionRowEl(r){
-  const row=document.createElement("div");row.className="apo-row";
+  const row=document.createElement("div");row.className="apo-row"+(r.standalone?" standalone":"");
   const cb=document.createElement("button");cb.className="apo-cb"+(r.action.done?" on":"")+(r.archived?" ro":"");cb.innerHTML=r.action.done?CHECK:"";
   if(!r.archived)cb.onclick=(e)=>{e.stopPropagation();r.action.done=!r.action.done;save();renderActionsPage();updateActionsNav();};
   const mid=document.createElement("div");mid.className="apo-mid";
-  const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");tx.innerHTML=richForSnap(r.action.t)||"(untitled)";
-  const meta=document.createElement("div");meta.className="apo-meta";
-  meta.textContent=[r.series.name||"Untitled meeting",r.action.owner?("→ "+r.action.owner):null,r.archived?("archived "+r.when):null].filter(Boolean).join("  ·  ");
-  mid.append(tx,meta);row.append(cb,mid);
+  if(r.standalone){
+    const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");tx.contentEditable=true;tx.dataset.ph="New action";
+    bindRich(tx,()=>r.action.t,(html)=>{r.action.t=html;updateActionsNav();});
+    const meta=document.createElement("div");meta.className="apo-meta apo-mrow";
+    const cl=rowClientObj(r);
+    const clb=document.createElement("button");clb.className="apo-cltag"+(cl?" set":"");clb.textContent=cl?("◆ "+cl.name):"+ assign client";clb.title="Assign to a client";
+    clb.onclick=(e)=>{e.stopPropagation();openActionClientMenu(r.action,clb);};
+    const own=document.createElement("span");own.className="apo-own";own.contentEditable=true;own.dataset.ph="owner";own.textContent=r.action.owner||"";
+    own.addEventListener("input",()=>{r.action.owner=own.textContent;save();});
+    meta.append(clb,own);mid.append(tx,meta);
+  }else{
+    const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");tx.innerHTML=richForSnap(r.action.t)||"(untitled)";
+    const meta=document.createElement("div");meta.className="apo-meta";
+    meta.textContent=[r.series?(r.series.name||"Untitled meeting"):"",r.action.owner?("→ "+r.action.owner):null,r.archived?("archived "+r.when):null].filter(Boolean).join("  ·  ");
+    mid.append(tx,meta);
+  }
+  row.append(cb,mid);
   if(r.archived){
     if(r.action.due){const d=document.createElement("span");d.className="apo-due";d.textContent="Due "+fmtDue(r.action.due);row.append(d);}
   }else{
@@ -3369,7 +3409,8 @@ function actionRowEl(r){
     d.onclick=(e)=>{e.stopPropagation();openDatePicker(d,()=>r.action.due,(v)=>{r.action.due=v;renderActionsPage();});};
     row.append(d);
   }
-  row.onclick=()=>{openMeeting(r.series.id);if(r.archived&&r.entryId){openHistory();showHistDetail(r.entryId);}};
+  if(r.standalone){const x=document.createElement("button");x.className="apo-del";x.textContent="×";x.title="Delete action";x.onclick=(e)=>{e.stopPropagation();DB.standaloneActions=(DB.standaloneActions||[]).filter(z=>z!==r.action);save();renderActionsPage();updateActionsNav();};row.append(x);}
+  else row.onclick=()=>{openMeeting(r.series.id);if(r.archived&&r.entryId){openHistory();showHistDetail(r.entryId);}};
   return row;
 }
 function renderActionsPage(){
@@ -3379,13 +3420,19 @@ function renderActionsPage(){
   const seg=document.createElement("div");seg.className="home-toggle";seg.style.margin="14px 0 4px";
   [["open","Open"],["completed","Completed"],["all","All"],["archived","Archived"]].forEach(o=>{const b=document.createElement("button");b.className=(DB.ui.actFilter||"open")===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.actFilter=o[0];save();renderActionsPage();};seg.append(b);});
   w.append(seg);
+  const f2=DB.ui.actFilter||"open";
+  if(f2==="open"||f2==="all"){
+    const add=document.createElement("button");add.className="ghost";add.style.margin="6px 0 2px";add.innerHTML='<span class="p">+</span> Add action';
+    add.onclick=()=>{DB.standaloneActions=DB.standaloneActions||[];DB.standaloneActions.push({id:uid(),t:"",owner:"",done:false,due:"",clientId:null});save();renderActionsPage();const els=document.querySelectorAll("#actionsView .apo-tx[contenteditable]");const el=els[els.length-1];if(el)el.focus();};
+    w.append(add);
+  }
   const rows=actionsRows();
-  if(!rows.length){const f=DB.ui.actFilter||"open";w.append(emptyBox("Nothing here",f==="archived"?"Actions from meetings you’ve saved to history will appear here.":"Capture actions inside a meeting’s “Actions captured” section."));return;}
-  const clientRows=rows.filter(r=>r.series.category!=="internal"),internalRows=rows.filter(r=>r.series.category==="internal");
+  if(!rows.length){const f=DB.ui.actFilter||"open";w.append(emptyBox("Nothing here",f==="archived"?"Actions from meetings you’ve saved to history will appear here.":"Add an action above, or capture one inside a meeting’s “Actions captured” section."));return;}
+  const clientRows=rows.filter(r=>rowCat(r)==="client"),internalRows=rows.filter(r=>rowCat(r)==="internal");
   if(clientRows.length){
     const c=document.createElement("div");c.className="apo-cat";c.textContent="Client";w.append(c);
     const groups=new Map();
-    clientRows.forEach(r=>{const cl=r.series.clientId?clientById(r.series.clientId):null;const key=cl?("c:"+cl.id):("s:"+r.series.id);if(!groups.has(key))groups.set(key,{label:cl?cl.name:(r.series.name||"Untitled"),color:cardColor(r.series),rows:[]});groups.get(key).rows.push(r);});
+    clientRows.forEach(r=>{const cl=rowClientObj(r);const key=cl?("c:"+cl.id):("s:"+(r.series?r.series.id:"x"));if(!groups.has(key))groups.set(key,{label:cl?cl.name:(r.series?(r.series.name||"Untitled"):"Unassigned"),color:rowColor(r),rows:[]});groups.get(key).rows.push(r);});
     [...groups.values()].sort((a,b)=>(a.label||"").localeCompare(b.label||"")).forEach(g=>{
       const gh=document.createElement("div");gh.className="apo-gcl";
       const dot=document.createElement("span");dot.className="apo-gdot";dot.style.background=g.color;
