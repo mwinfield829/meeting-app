@@ -571,12 +571,9 @@
   .total b{color:var(--ink);font-weight:500}
 
   .acts{display:flex;flex-direction:column;gap:2px}
-  .act{display:grid;grid-template-columns:20px minmax(0,1fr) 122px 82px 78px 18px;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid var(--hair)}
+  .act{display:grid;grid-template-columns:20px minmax(0,1fr) 122px 82px 18px;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid var(--hair)}
   .act>.box{margin-top:0}
-  .act>.act-due,.act>.atag,.act>.aowner{justify-self:start;margin-top:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .act>.aowner:before{content:none}
-  .act>.aowner.empty{opacity:0;transition:opacity .12s}
-  .act:hover>.aowner.empty,.act>.aowner.empty:focus{opacity:1}
+  .act>.act-due,.act>.atag{justify-self:start;margin-top:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .act:last-child{border-bottom:0}
   .act .box{flex:none;margin-top:4px;width:18px;height:18px;border:1.5px solid var(--hair-strong);border-radius:5px;cursor:pointer;transition:.12s;display:flex;align-items:center;justify-content:center}
   .act .box:hover{border-color:var(--accent)}
@@ -585,7 +582,6 @@
   .act.done .box svg{opacity:1}
   .act .atext{flex:1;font-size:16px}
   .act.done .atext{color:var(--faint);text-decoration:line-through}
-  .act .aowner{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);white-space:nowrap;margin-top:2px}
   .act .rm{margin-top:2px}
   .empty{color:var(--faint);font-style:italic;font-size:15px;padding:6px 0}
 
@@ -789,8 +785,6 @@
   .apo-cltag{font-family:"Archivo",sans-serif;font-size:10px;font-weight:600;letter-spacing:.02em;border-radius:99px;padding:2px 9px;cursor:pointer;border:1px dashed var(--hair-strong);background:none;color:var(--muted)}
   .apo-cltag:hover{border-color:var(--accent);color:var(--accent)}
   .apo-cltag.set{border-style:solid;border-color:var(--green-edge);background:var(--accent-soft);color:var(--accent-ink)}
-  .apo-own{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);outline:none;min-width:44px}
-  .apo-own:before{content:"→ ";color:var(--faint)}
   .apo-del{border:0;background:none;color:var(--faint);font-size:15px;line-height:1;cursor:pointer;flex:none;padding:0 4px;align-self:flex-start;margin-top:2px}
   .apo-del:hover{color:#c0392b}
 </style>
@@ -1431,8 +1425,6 @@ function renderActions(){
     box.onclick=()=>{a.done=!a.done;save();renderActions();};
     const t=document.createElement("div");t.className="atext";t.contentEditable=true;t.dataset.ph="Action";
     bindRich(t,()=>a.t,(html)=>{a.t=html;});
-    const ow=document.createElement("div");ow.className="aowner"+((a.owner||"").trim()?"":" empty");ow.contentEditable=true;ow.dataset.ph="+ owner";ow.textContent=a.owner;
-    ow.addEventListener("input",()=>{a.owner=ow.textContent;save();ow.classList.toggle("empty",!ow.textContent.trim());});
     const due=document.createElement("button");const over=!a.done&&isOverdue(a.due);
     due.className="act-due"+(a.due?(over?" over":""):" empty");
     due.textContent=a.due?fmtDue(a.due):"Due date";
@@ -1446,7 +1438,7 @@ function renderActions(){
     tag.onclick=(e)=>{e.stopPropagation();openActionClientMenu(a,tag,renderActions);};
     const rm=document.createElement("button");rm.className="rm";rm.textContent="\u00d7";
     rm.onclick=()=>{S.actions.splice(i,1);save();renderActions();};
-    row.append(box,t,tag,due,ow,rm);w.append(row);
+    row.append(box,t,tag,due,rm);w.append(row);
   });
   updateActionsNav();
 }
@@ -1596,7 +1588,7 @@ function buildSummary(ag){
     t.points.filter(p=>ptText(p).trim()).forEach(p=>L.push("      "+"  ".repeat(ptLvl(p))+"- "+richToMd(ptText(p))));
   });
   const act=(ag.actions||[]).filter(a=>(a.t||"").trim());
-  if(act.length){L.push("\nActions:");act.forEach(a=>{const c=a.clientId?clientById(a.clientId):null;const dd=a.due?(" due "+fmtDue(a.due)):"";L.push("  ["+(a.done?"x":" ")+"] "+richToMd(a.t)+(a.owner?" \u2192 "+a.owner:"")+dd+(c?"  ("+c.name+")":""));});}
+  if(act.length){L.push("\nActions:");act.forEach(a=>{const c=a.clientId?clientById(a.clientId):null;const dd=a.due?(" due "+fmtDue(a.due)):"";L.push("  ["+(a.done?"x":" ")+"] "+richToMd(a.t)+dd+(c?"  ("+c.name+")":""));});}
   const pk=(ag.park||[]).filter(p=>p.trim());
   if(pk.length){L.push("\nParked:");pk.forEach(p=>L.push("  \u2022 "+p));}
   return L.join("\n");
@@ -1708,7 +1700,7 @@ function snapshotHTML(ag){
   if(act.length){
     h+='<div class="snap-sec"><div class="snap-h">Actions</div>';
     act.forEach(a=>{const c=a.clientId?clientById(a.clientId):null;
-      h+='<div class="snap-act'+(a.done?" done":"")+'"><span class="mk">'+(a.done?"\u2713":"\u25cb")+'</span> '+richForSnap(a.t)+(a.owner?' <span class="o">\u2192 '+esc(a.owner)+'</span>':'')+(a.due?' <span class="o">due '+esc(fmtDue(a.due))+'</span>':'')+(c?' <span class="tg">\u25c6 '+esc(c.name)+'</span>':'')+'</div>';
+      h+='<div class="snap-act'+(a.done?" done":"")+'"><span class="mk">'+(a.done?"\u2713":"\u25cb")+'</span> '+richForSnap(a.t)+(a.due?' <span class="o">due '+esc(fmtDue(a.due))+'</span>':'')+(c?' <span class="tg">\u25c6 '+esc(c.name)+'</span>':'')+'</div>';
     });
     h+='</div>';
   }
@@ -1758,7 +1750,7 @@ function searchAgendas(query,seriesList){
       const add=(section,text)=>{const plain=(text||"").trim();if(plain&&plain.toLowerCase().includes(q))hits.push({section,snippet:plain,when,entryId,isCur});};
       add("Title",ag.title);add("Purpose",ag.purpose);
       (ag.topics||[]).forEach(t=>{add("Topic",rtext(t.title));(t.points||[]).forEach(p=>add("Sub-point",rtext(ptText(p))));});
-      (ag.actions||[]).forEach(a=>{add("Action",rtext(a.t));add("Owner",a.owner);});
+      (ag.actions||[]).forEach(a=>{add("Action",rtext(a.t));});
       (ag.park||[]).forEach(p=>add("Parked",p));
       (ag.attendees||[]).forEach(at=>add("Attendee",at));
     };
@@ -3382,14 +3374,12 @@ function actionRowEl(r){
     const cl=rowClientObj(r);
     const clb=document.createElement("button");clb.className="apo-cltag"+(cl?" set":"");clb.textContent=cl?("◆ "+cl.name):"+ assign client";clb.title="Assign to a client";
     clb.onclick=(e)=>{e.stopPropagation();openActionClientMenu(r.action,clb);};
-    const own=document.createElement("span");own.className="apo-own";own.contentEditable=true;own.dataset.ph="owner";own.textContent=r.action.owner||"";
-    own.addEventListener("input",()=>{r.action.owner=own.textContent;save();});
-    meta.append(clb,own);mid.append(tx,meta);
+    meta.append(clb);mid.append(tx,meta);
   }else{
     const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");tx.innerHTML=richForSnap(r.action.t)||"(untitled)";
     const meta=document.createElement("div");meta.className="apo-meta apo-mrow";
     const src=document.createElement("span");
-    src.textContent=[r.series?(r.series.name||"Untitled meeting"):"",r.action.owner?("→ "+r.action.owner):null,r.archived?("archived "+r.when):null].filter(Boolean).join("  ·  ");
+    src.textContent=[r.series?(r.series.name||"Untitled meeting"):"",r.archived?("archived "+r.when):null].filter(Boolean).join("  ·  ");
     meta.append(src);
     if(!r.archived){
       const cl=rowClientObj(r);
