@@ -766,27 +766,15 @@
   .apo-gdot{width:9px;height:9px;border-radius:50%;flex:none}
   .apo-gnm{font-family:"Archivo",sans-serif;font-size:13px;font-weight:600;color:var(--ink)}
   .apo-gcnt{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);background:var(--card);border:1px solid var(--hair);border-radius:99px;padding:1px 7px}
-  .apo-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--hair);border-radius:10px;padding:12px 14px;margin:0 0 8px 14px;cursor:pointer;box-shadow:var(--shadow)}
+  .apo-row{display:grid;grid-template-columns:20px minmax(0,1fr) 122px 82px 18px;align-items:center;gap:11px;background:var(--card);border:1px solid var(--hair);border-radius:10px;padding:11px 14px;margin:0 0 8px 14px;cursor:pointer;box-shadow:var(--shadow)}
   .apo-row:hover{border-color:var(--accent)}
-  .apo-cb{width:19px;height:19px;border-radius:5px;border:1.5px solid var(--hair-strong);background:none;flex:none;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+  .apo-row>.atag,.apo-row>.act-due{justify-self:start;margin-top:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .apo-cb{width:19px;height:19px;border-radius:5px;border:1.5px solid var(--hair-strong);background:none;flex:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
   .apo-cb svg{width:12px;height:12px}
   .apo-cb.on{background:var(--accent);border-color:var(--accent)}
   .apo-cb.ro{cursor:default}
-  .apo-mid{flex:1;min-width:0}
-  .apo-tx{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.35}
+  .apo-tx{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.35;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .apo-tx.done{color:var(--faint);text-decoration:line-through}
-  .apo-meta{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);margin-top:4px}
-  .apo-due{flex:none;font-family:"Archivo",sans-serif;font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;background:var(--paper);color:var(--ink-soft);white-space:nowrap;margin-top:1px}
-  .apo-due.over{background:#FCEBEB;color:#A32D2D}
-  .apo-due.edit{cursor:pointer;border:1px solid var(--hair-strong);background:var(--paper)}
-  .apo-due.edit.empty{border-style:dashed;color:var(--faint);background:none}
-  .apo-due.edit.over{border-color:#F0C9C4;background:#FCEBEB;color:#A32D2D}
-  .apo-mrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .apo-cltag{font-family:"Archivo",sans-serif;font-size:10px;font-weight:600;letter-spacing:.02em;border-radius:99px;padding:2px 9px;cursor:pointer;border:1px dashed var(--hair-strong);background:none;color:var(--muted)}
-  .apo-cltag:hover{border-color:var(--accent);color:var(--accent)}
-  .apo-cltag.set{border-style:solid;border-color:var(--green-edge);background:var(--accent-soft);color:var(--accent-ink)}
-  .apo-del{border:0;background:none;color:var(--faint);font-size:15px;line-height:1;cursor:pointer;flex:none;padding:0 4px;align-self:flex-start;margin-top:2px}
-  .apo-del:hover{color:#c0392b}
 </style>
 </head>
 <body>
@@ -3366,41 +3354,28 @@ function actionRowEl(r){
   const row=document.createElement("div");row.className="apo-row"+(r.standalone?" standalone":"");
   const cb=document.createElement("button");cb.className="apo-cb"+(r.action.done?" on":"")+(r.archived?" ro":"");cb.innerHTML=r.action.done?CHECK:"";
   if(!r.archived)cb.onclick=(e)=>{e.stopPropagation();r.action.done=!r.action.done;save();renderActionsPage();updateActionsNav();};
-  const mid=document.createElement("div");mid.className="apo-mid";
+  const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");
+  if(r.standalone){tx.contentEditable=true;tx.dataset.ph="New action";bindRich(tx,()=>r.action.t,(html)=>{r.action.t=html;updateActionsNav();});}
+  else{tx.innerHTML=richForSnap(r.action.t)||"(untitled)";}
+  const cl=rowClientObj(r);
+  const tag=document.createElement("button");tag.className="atag "+(cl?"set":"empty-tag");
+  tag.textContent=cl?("◆ "+shorten(cl.name)):"+ client";
+  if(r.archived){tag.disabled=true;tag.style.cursor="default";}
+  else{tag.title="Assign this action to a client";tag.onclick=(e)=>{e.stopPropagation();openActionClientMenu(r.action,tag);};}
+  const due=document.createElement("button");const over=!r.archived&&!r.action.done&&isOverdue(r.action.due);
+  due.className="act-due"+(r.action.due?(over?" over":""):" empty");
+  due.textContent=r.action.due?fmtDue(r.action.due):"Due date";
+  if(r.archived){due.disabled=true;due.style.cursor="default";}
+  else{due.title="Set a due date";due.onclick=(e)=>{e.stopPropagation();openDatePicker(due,()=>r.action.due,(v)=>{r.action.due=v;renderActionsPage();});};}
+  row.append(cb,tx,tag,due);
   if(r.standalone){
-    const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");tx.contentEditable=true;tx.dataset.ph="New action";
-    bindRich(tx,()=>r.action.t,(html)=>{r.action.t=html;updateActionsNav();});
-    const meta=document.createElement("div");meta.className="apo-meta apo-mrow";
-    const cl=rowClientObj(r);
-    const clb=document.createElement("button");clb.className="apo-cltag"+(cl?" set":"");clb.textContent=cl?("◆ "+cl.name):"+ assign client";clb.title="Assign to a client";
-    clb.onclick=(e)=>{e.stopPropagation();openActionClientMenu(r.action,clb);};
-    meta.append(clb);mid.append(tx,meta);
+    const x=document.createElement("button");x.className="rm";x.textContent="×";x.title="Delete action";
+    x.onclick=(e)=>{e.stopPropagation();DB.standaloneActions=(DB.standaloneActions||[]).filter(z=>z!==r.action);save();renderActionsPage();updateActionsNav();};
+    row.append(x);
   }else{
-    const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");tx.innerHTML=richForSnap(r.action.t)||"(untitled)";
-    const meta=document.createElement("div");meta.className="apo-meta apo-mrow";
-    const src=document.createElement("span");
-    src.textContent=[r.series?(r.series.name||"Untitled meeting"):"",r.archived?("archived "+r.when):null].filter(Boolean).join("  ·  ");
-    meta.append(src);
-    if(!r.archived){
-      const cl=rowClientObj(r);
-      const clb=document.createElement("button");clb.className="apo-cltag"+(cl?" set":"");clb.textContent=cl?("◆ "+cl.name):"+ client";clb.title="Assign this action to a client";
-      clb.onclick=(e)=>{e.stopPropagation();openActionClientMenu(r.action,clb);};
-      meta.append(clb);
-    }
-    mid.append(tx,meta);
+    const sp=document.createElement("span");row.append(sp);
+    row.onclick=()=>{openMeeting(r.series.id);if(r.archived&&r.entryId){openHistory();showHistDetail(r.entryId);}};
   }
-  row.append(cb,mid);
-  if(r.archived){
-    if(r.action.due){const d=document.createElement("span");d.className="apo-due";d.textContent="Due "+fmtDue(r.action.due);row.append(d);}
-  }else{
-    const d=document.createElement("button");const over=!r.action.done&&isOverdue(r.action.due);
-    d.className="apo-due edit"+(r.action.due?(over?" over":""):" empty");
-    d.textContent=r.action.due?("Due "+fmtDue(r.action.due)):"Due date";d.title="Set a due date";
-    d.onclick=(e)=>{e.stopPropagation();openDatePicker(d,()=>r.action.due,(v)=>{r.action.due=v;renderActionsPage();});};
-    row.append(d);
-  }
-  if(r.standalone){const x=document.createElement("button");x.className="apo-del";x.textContent="×";x.title="Delete action";x.onclick=(e)=>{e.stopPropagation();DB.standaloneActions=(DB.standaloneActions||[]).filter(z=>z!==r.action);save();renderActionsPage();updateActionsNav();};row.append(x);}
-  else row.onclick=()=>{openMeeting(r.series.id);if(r.archived&&r.entryId){openHistory();showHistDetail(r.entryId);}};
   return row;
 }
 function renderActionsPage(){
