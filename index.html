@@ -3420,12 +3420,15 @@ function renderActionsPage(){
   const w=document.getElementById("actionsView");if(!w||view!=="actions")return;w.innerHTML="";
   const head=document.createElement("div");head.className="home-head";
   const t=document.createElement("h1");t.className="home-title";t.textContent="Actions";head.append(t);
-  const f0=DB.ui.actFilter||"open";
-  if(f0==="open"||f0==="all"){
-    const add=document.createElement("button");add.className="home-new";add.innerHTML='<span style="font-size:15px;font-weight:700">+</span> Add action';
-    add.onclick=()=>{DB.standaloneActions=DB.standaloneActions||[];DB.standaloneActions.push({id:uid(),t:"",owner:"",done:false,due:"",clientId:null});save();renderActionsPage();const els=document.querySelectorAll("#actionsView .apo-tx[contenteditable]");const el=els[els.length-1];if(el)el.focus();};
-    head.append(add);
-  }
+  const add=document.createElement("button");add.className="home-new";add.innerHTML='<span style="font-size:15px;font-weight:700">+</span> Add action';
+  add.onclick=()=>{
+    DB.standaloneActions=DB.standaloneActions||[];
+    DB.standaloneActions.push({id:uid(),t:"",owner:"",done:false,due:"",clientId:null});
+    const f=DB.ui.actFilter||"open";if(f!=="open"&&f!=="all")DB.ui.actFilter="open";
+    save();renderActionsPage();
+    const els=document.querySelectorAll("#actionsView .apo-tx[contenteditable]");const el=els[els.length-1];if(el)el.focus();
+  };
+  head.append(add);
   w.append(head);
   const seg=document.createElement("div");seg.className="home-toggle";seg.style.margin="14px 0 4px";
   [["open","Open"],["completed","Completed"],["all","All"],["archived","Archived"]].forEach(o=>{const b=document.createElement("button");b.className=(DB.ui.actFilter||"open")===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.actFilter=o[0];save();renderActionsPage();};seg.append(b);});
