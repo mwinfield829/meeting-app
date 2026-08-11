@@ -93,6 +93,7 @@
   .rail{background:var(--rail);border-right:0}
   .rail-brand{display:flex;align-items:center;gap:9px;padding:2px 6px 14px}
   .rail-brand .logo{width:30px;height:30px;border-radius:9px;flex:none;background:linear-gradient(135deg,var(--eyebrow),var(--g2));display:flex;align-items:center;justify-content:center;font-family:"Poppins",sans-serif;font-weight:800;font-size:14px;color:#fff}
+  .rail-brand .logo svg{width:17px;height:17px;display:block}
   .rail-brand b{font-family:"Poppins",sans-serif;font-weight:700;font-size:14px;color:#fff;line-height:1.1;display:block}
   .rail-brand span{font-size:10.5px;color:rgba(255,255,255,.5)}
   .rail-title{color:rgba(255,255,255,.5)}
@@ -1202,12 +1203,13 @@ function setAccentFamily(a){
   r.setProperty("--accent-2",a);
   r.setProperty("--accent-3",a);
 }
+const LOGO_BEMA='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h5v-5h5v-5h5"/></svg>';
 function applyBranding(){
   const nm=(DB.ui.productName||"Exec Agenda").trim()||"Exec Agenda";
   const sub=(DB.ui.productSub||"").trim();
   const b=document.getElementById("brandName");if(b)b.textContent=nm;
   const s=document.getElementById("brandSub");if(s){s.textContent=sub;s.style.display=sub?"":"none";}
-  const lg=document.getElementById("brandLogo");if(lg)lg.textContent=nm.replace(/^the\s+/i,"").charAt(0).toUpperCase();
+  const lg=document.getElementById("brandLogo");if(lg)lg.innerHTML=LOGO_BEMA;
   try{document.title=nm;}catch(e){}
 }
 function applyTheme(){
