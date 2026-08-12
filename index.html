@@ -3307,7 +3307,12 @@ function applyEventToSeries(s,ev){
   const p=parseGcalStart(ev);
   s.cur.date=p.date;s.cur.time=p.time;
   const att=gcalAttendees(ev);if(att.length)s.cur.attendees=att;
-  if(!(s.cur.title||"").trim())s.cur.title=s.name;
+  const nm=(ev.summary||"").trim(),old=(s.name||"").trim();
+  if(nm){
+    s.name=nm;
+    const cur=(s.cur.title||"").trim();
+    if(!cur||cur===old)s.cur.title=nm;
+  }else if(!(s.cur.title||"").trim())s.cur.title=s.name;
   s.gcalId=eventKey(ev);s.gcalLink=ev.htmlLink||s.gcalLink||"";
 }
 function importEvent(ev){
