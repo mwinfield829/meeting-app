@@ -812,7 +812,7 @@
     <div id="railMeetings">
       <div class="rail-brand" id="railBrand" role="button" title="Home"><span class="logo" id="brandLogo"></span><b id="brandName">Exec Agenda</b><button class="rail-toggle" id="railToggle" title="Collapse" aria-label="Collapse meetings">&lsaquo;</button></div>
       <div id="railSearch" class="rail-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search</div>
-      <div id="railActions" class="rail-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Actions <span id="railActionsCount" class="rail-badge"></span></div>
+      <div id="railActions" class="rail-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Actions <span id="railActionsCount" class="rail-badge" style="display:none"></span></div>
       <div class="rail-mlab" id="railMeetingsLab">Meetings</div>
       <div id="seriesList"></div>
       <button class="add-series" id="addSeries"><span style="font-size:14px;font-weight:700">+</span> New meeting</button>
@@ -1449,6 +1449,7 @@ function move(i,d){const j=i+d;if(j<0||j>=S.topics.length)return;const a=S.topic
 /* actions */
 const CHECK='<svg viewBox="0 0 12 12" fill="none"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function renderActions(){
+  updateActionsNav();
   const w=document.getElementById("acts");w.innerHTML="";
   if(!S.actions.length){const e=document.createElement("div");e.className="empty";e.textContent="Nothing captured yet. Add as commitments land.";w.append(e);return;}
   S.actions.forEach((a,i)=>{
@@ -2027,6 +2028,7 @@ function deleteSeries(s){
 function secOpen(key){return !(DB.ui.sec&&DB.ui.sec[key]);}
 function toggleSec(key){DB.ui.sec[key]=secOpen(key);save();renderRail();}
 function renderRail(){
+  updateActionsNav();
   const w=document.getElementById("seriesList");if(!w)return;w.innerHTML="";
   [["client","Client"],["internal","Internal"]].forEach(cat=>{
     const cid=cat[0];
