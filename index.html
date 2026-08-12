@@ -511,7 +511,10 @@
     border-radius:10px;padding:13px 44px 13px 15px;margin-bottom:10px;transition:box-shadow .12s,border-color .12s}
   .topicbox.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
   .tb-top{display:flex;align-items:flex-start;gap:9px}
-  .tb-mk{flex:none;width:15px;display:inline-flex;align-items:center;justify-content:flex-start;gap:3px;margin-top:6px}
+  .tb-mk{flex:none;width:15px;display:inline-flex;align-items:center;justify-content:flex-start;gap:3px;margin-top:6px;cursor:grab}
+  .tb-mk:active{cursor:grabbing}
+  .topicbox.dragging{opacity:.45}
+  .topicbox.drop-hint{outline:2px dashed var(--accent);outline-offset:2px}
   .tb-mk.dual{width:auto}
   .tb-mk .dia{width:7px;height:7px;border-radius:2px;background:var(--accent-3);transform:rotate(45deg);margin-left:1px}
   .tb-mk svg{display:block}
@@ -868,7 +871,7 @@
   <div class="card">
     <div class="sec-head">
       <span class="sec-title">Topics</span>
-      <span class="sec-hint">click a box to edit &middot; in a sub-point, Enter adds a bullet &middot; Tab indents</span>
+      <span class="sec-hint">drag &#9670; to reorder &middot; in a sub-point, Enter adds a bullet &middot; Tab indents</span>
     </div>
     <div id="topics"></div>
     <button class="addtopic" id="addTopic"><span class="p">+</span> Add topic</button>
@@ -1377,7 +1380,7 @@ function renderAttendees(){
 function ptText(p){return (p&&typeof p==="object")?(p.t||""):(p||"");}
 function ptLvl(p){return (p&&typeof p==="object"&&p.lvl)?Math.max(0,Math.min(3,p.lvl|0)):0;}
 function placeCaretEnd(el){try{const r=document.createRange();r.selectNodeContents(el);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
-let _focusPoint=null;
+let _focusPoint=null,tpDragIndex=null;
 function renderTopics(){
   const w=document.getElementById("topics");w.innerHTML="";
   S.topics.forEach((tp,i)=>{
@@ -1389,6 +1392,20 @@ function renderTopics(){
 
     const top=document.createElement("div");top.className="tb-top";
     const mk=document.createElement("span");mk.className="tb-mk";
+    mk.draggable=true;mk.title="Drag to reorder";
+    mk.addEventListener("dragstart",e=>{
+      tpDragIndex=i;box.classList.add("dragging");
+      try{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(i));e.dataTransfer.setDragImage(box,24,18);}catch(_){}
+    });
+    mk.addEventListener("dragend",()=>{tpDragIndex=null;document.querySelectorAll("#topics .topicbox").forEach(b=>b.classList.remove("drop-hint","dragging"));});
+    box.addEventListener("dragover",e=>{if(tpDragIndex===null||tpDragIndex===i)return;e.preventDefault();try{e.dataTransfer.dropEffect="move";}catch(_){}box.classList.add("drop-hint");});
+    box.addEventListener("dragleave",()=>box.classList.remove("drop-hint"));
+    box.addEventListener("drop",e=>{
+      e.preventDefault();box.classList.remove("drop-hint");
+      const from=tpDragIndex;tpDragIndex=null;
+      if(from===null||from===i)return;
+      const arr=S.topics,m=arr.splice(from,1)[0];arr.splice(i,0,m);save();renderTopics();
+    });
     if(tp.standing&&tp.pushed){mk.classList.add("dual");mk.innerHTML='<span style="color:var(--accent-2)">'+ICO_PIN+'</span><span style="color:#BA7517">'+ICO_CHEV+'</span>';}
     else if(tp.pushed){mk.style.color="#BA7517";mk.innerHTML=ICO_CHEV;}
     else if(tp.standing){mk.style.color="var(--accent-2)";mk.innerHTML=ICO_PIN;}
@@ -1425,8 +1442,6 @@ function renderTopics(){
     const bt=document.createElement("div");bt.className="boxtools";
     bt.append(
       mkTool('<span class="ic">+</span> Sub-point',"Add a sub-point",()=>{tp.collapsed=false;tp.points.push({t:"",lvl:0});save();_focusPoint={tid:tp.id,idx:tp.points.length-1};renderTopics();}),
-      mkTool('<span class="ic">\u2191</span>',"Move up",()=>move(i,-1)),
-      mkTool('<span class="ic">\u2193</span>',"Move down",()=>move(i,1)),
       mkTool((S.activeId===tp.id?"\u25c9 Current":"Mark current"),"Mark as current topic",()=>{S.activeId=S.activeId===tp.id?null:tp.id;save();renderTopics();},S.activeId===tp.id),
       mkTool('<span class="ic">\u25c7</span> Action',"Capture an action from this topic",()=>{S.actions.push({id:uid(),t:"",owner:"",done:false,due:"",clientId:defaultActionClient()});save();renderActions();focusLast(document.getElementById("acts"),".atext");}),
       mkTool(ICO_PIN+(tp.standing?" Standing":" Make standing"),"Standing topic \u2014 recreated each meeting",()=>{tp.standing=!tp.standing;save();renderTopics();},tp.standing),
@@ -1445,7 +1460,6 @@ function renderTopics(){
 const ICO_PIN='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 7 3 3v2H7v-2l3-3-1-7z"/><path d="M12 16v5"/></svg>';
 const ICO_CHEV='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 6l6 6-6 6M13 6l6 6-6 6"/></svg>';
 function mkTool(html,title,fn,on,cls){const b=document.createElement("button");b.className="tool"+(on?" on":"")+(cls?" "+cls:"");b.innerHTML=html;b.title=title;b.onclick=fn;return b;}
-function move(i,d){const j=i+d;if(j<0||j>=S.topics.length)return;const a=S.topics;[a[i],a[j]]=[a[j],a[i]];save();renderTopics();}
 
 /* actions */
 const CHECK='<svg viewBox="0 0 12 12" fill="none"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
