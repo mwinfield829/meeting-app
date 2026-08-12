@@ -1385,7 +1385,7 @@ function renderTopics(){
   const w=document.getElementById("topics");w.innerHTML="";
   S.topics.forEach((tp,i)=>{
     const box=document.createElement("div");
-    box.className="topicbox"+(S.activeId===tp.id?" active":"");
+    box.className="topicbox";
 
     const del=document.createElement("button");del.className="tb-del";del.textContent="\u00d7";del.title="Delete topic";
     del.onclick=()=>{S.topics.splice(i,1);if(!S.topics.length)S.topics.push({id:uid(),title:"",points:[]});save();renderTopics();};
@@ -1442,7 +1442,6 @@ function renderTopics(){
     const bt=document.createElement("div");bt.className="boxtools";
     bt.append(
       mkTool('<span class="ic">+</span> Sub-point',"Add a sub-point",()=>{tp.collapsed=false;tp.points.push({t:"",lvl:0});save();_focusPoint={tid:tp.id,idx:tp.points.length-1};renderTopics();}),
-      mkTool((S.activeId===tp.id?"\u25c9 Current":"Mark current"),"Mark as current topic",()=>{S.activeId=S.activeId===tp.id?null:tp.id;save();renderTopics();},S.activeId===tp.id),
       mkTool('<span class="ic">\u25c7</span> Action',"Capture an action from this topic",()=>{S.actions.push({id:uid(),t:"",owner:"",done:false,due:"",clientId:defaultActionClient()});save();renderActions();focusLast(document.getElementById("acts"),".atext");}),
       mkTool(ICO_PIN+(tp.standing?" Standing":" Make standing"),"Standing topic \u2014 recreated each meeting",()=>{tp.standing=!tp.standing;save();renderTopics();},tp.standing),
       mkTool(ICO_CHEV+(tp.pushed?" Pushing":" Push to next"),"Carry this topic to the next meeting",()=>{tp.pushed=!tp.pushed;save();renderTopics();},tp.pushed,"push")
