@@ -535,8 +535,7 @@
   .pt-toggle.collapsed .cv{transform:rotate(-90deg)}
   .pt-collapsed-note{margin:6px 0 0 24px;font-family:"Archivo",sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--muted);cursor:pointer;display:inline-block}
   .pt-collapsed-note:hover{color:var(--accent)}
-  .addpoint{margin:8px 0 0 24px;opacity:0;transition:opacity .12s}
-  .topicbox:hover .addpoint,.topicbox:focus-within .addpoint{opacity:1}
+  .points:empty{margin:0}
 
   /* always-visible delete on each box */
   .tb-del{position:absolute;top:10px;right:10px;width:24px;height:24px;border:1px solid transparent;background:none;color:var(--faint);cursor:pointer;border-radius:6px;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;transition:.12s}
@@ -1418,13 +1417,9 @@ function renderTopics(){
       li.append(del,pt);ul.append(li);
     });
 
-    const ap=document.createElement("div");ap.className="addpoint";
-    const apb=document.createElement("button");apb.className="ghost";apb.innerHTML='<span class="p">+</span> Sub-point';
-    apb.onclick=()=>{tp.points.push({t:"",lvl:0});save();renderTopics();focusLast(box,".pt");};
-    ap.append(apb);
-
     const bt=document.createElement("div");bt.className="boxtools";
     bt.append(
+      mkTool('<span class="ic">+</span> Sub-point',"Add a sub-point",()=>{tp.collapsed=false;tp.points.push({t:"",lvl:0});save();_focusPoint={tid:tp.id,idx:tp.points.length-1};renderTopics();}),
       mkTool('<span class="ic">\u2191</span>',"Move up",()=>move(i,-1)),
       mkTool('<span class="ic">\u2193</span>',"Move down",()=>move(i,1)),
       mkTool((S.activeId===tp.id?"\u25c9 Current":"Mark current"),"Mark as current topic",()=>{S.activeId=S.activeId===tp.id?null:tp.id;save();renderTopics();},S.activeId===tp.id),
@@ -1436,7 +1431,7 @@ function renderTopics(){
     if(collapsed){
       box.append(del,top,bt);
     }else{
-      box.append(del,top,ul,ap,bt);
+      box.append(del,top,ul,bt);
     }
     w.append(box);
   });
