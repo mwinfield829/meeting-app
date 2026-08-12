@@ -2195,7 +2195,13 @@ const IC_CAL='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
 const ICO_RESTORE='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.3 2.6L3 8"/><path d="M3 3v5h5"/></svg>';
 function fmtDayDate(iso){const d=parseISO(iso);return d?d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}):"";}
 function within7(iso){const d=parseISO(iso);if(!d)return false;const t=new Date();t.setHours(0,0,0,0);const end=new Date(t);end.setDate(end.getDate()+7);return d>=t&&d<end;}
-function byNextDate(a,b){const da=a.cur&&a.cur.date,db=b.cur&&b.cur.date;if(da&&db)return da<db?-1:(da>db?1:0);if(da)return -1;if(db)return 1;return (a.name||"").localeCompare(b.name||"");}
+function byNextDate(a,b){
+  const da=(a.cur&&a.cur.date)||"",db=(b.cur&&b.cur.date)||"";
+  if(da!==db){if(!da)return 1;if(!db)return -1;return da<db?-1:1;}
+  const ta=(a.cur&&a.cur.time)||"",tb=(b.cur&&b.cur.time)||"";
+  if(ta!==tb){if(!ta)return 1;if(!tb)return -1;return ta<tb?-1:1;}
+  return (a.name||"").localeCompare(b.name||"");
+}
 function newBtn(){const b=document.createElement("button");b.className="home-new";b.innerHTML='<span style="font-size:15px;font-weight:700">+</span> New meeting';b.onclick=openNewMeeting;return b;}
 function emptyBox(h,body,withBtn){const e=document.createElement("div");e.className="home-empty";const hh=document.createElement("div");hh.className="he-h";hh.textContent=h;const bb=document.createElement("div");bb.className="he-b";bb.textContent=body;e.append(hh,bb);if(withBtn)e.append(newBtn());return e;}
 function meetingCard(s,showDay){
@@ -2653,7 +2659,7 @@ function renderHome(){
   opts.forEach(o=>{const b=document.createElement("button");b.className=filter===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.homeFilter=o[0];save();renderHome();};seg.append(b);});
   w.append(seg);
   if(filter==="week"){
-    const up=DB.series.filter(s=>!s.archived&&s.cur&&within7(s.cur.date)).sort((a,b)=>(a.cur.date<b.cur.date?-1:1));
+    const up=DB.series.filter(s=>!s.archived&&s.cur&&within7(s.cur.date)).sort(byNextDate);
     if(!up.length){w.append(emptyBox("Nothing in the next 7 days","Switch to All to see every meeting, or open one from the sidebar to set its date."));}
     else{const grid=document.createElement("div");grid.className="home-grid";up.forEach(s=>grid.append(meetingCard(s,true)));w.append(grid);}
   }else if(filter==="archived"){
