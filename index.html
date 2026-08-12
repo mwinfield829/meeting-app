@@ -529,7 +529,9 @@
   .points li:hover .pt-del .xx,.park li:hover .pt-del .xx{opacity:1}
   .park li .pt-del{margin-top:4px}
   .park li .pt-del .dot{background:var(--faint)}
-  .pt-toggle{flex:none;border:0;background:none;color:var(--muted);cursor:pointer;font-size:10px;line-height:1;padding:4px;margin-top:3px;border-radius:5px;transition:.12s}
+  .pt-toggle,.pt-spacer{flex:none;width:16px;margin-top:3px}
+  .pt-spacer{display:block;height:1px}
+  .pt-toggle{border:0;background:none;color:var(--muted);cursor:pointer;font-size:10px;line-height:1;padding:4px 0;text-align:center;border-radius:5px;transition:.12s}
   .pt-toggle:hover{color:var(--accent);background:#fff}
   .pt-toggle .cv{display:inline-block;transition:transform .15s}
   .pt-toggle.collapsed .cv{transform:rotate(-90deg)}
@@ -1399,7 +1401,10 @@ function renderTopics(){
       const tgl=document.createElement("button");tgl.className="pt-toggle"+(collapsed?" collapsed":"");tgl.innerHTML='<span class="cv">▾</span>';tgl.title=collapsed?"Show sub-points":"Hide sub-points";
       tgl.onclick=(e)=>{e.stopPropagation();tp.collapsed=!collapsed;save();renderTopics();};
       top.append(tgl,mk,ti);
-    }else{top.append(mk,ti);}
+    }else{
+      const sp=document.createElement("span");sp.className="pt-spacer";sp.setAttribute("aria-hidden","true");
+      top.append(sp,mk,ti);
+    }
 
     const ul=document.createElement("ul");ul.className="points";
     tp.points.forEach((p,pi)=>{
