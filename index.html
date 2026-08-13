@@ -476,6 +476,16 @@
   .tp-cell.sel{background:var(--accent);color:#fff}
   .tp-cell.sel:hover{background:var(--accent-ink);color:#fff}
   .ampm-row .tp-cell{font-family:"Archivo",sans-serif;font-weight:600;font-size:12px;padding:8px 0}
+  .ag-skip{background:none;border:0;padding:0 0 1px;font-family:"Archivo",sans-serif;font-weight:600;font-size:11.5px;color:var(--hero-sub);border-bottom:1px solid rgba(255,255,255,.3);cursor:pointer;transition:.12s}
+  .ag-skip:hover{color:#fff;border-bottom-color:#fff}
+  .sk-row{display:flex;align-items:center;gap:10px;margin-top:14px}
+  .sk-row .k{font-family:"Archivo",sans-serif;font-weight:600;font-size:11.5px;color:var(--muted);flex:none}
+  .cl-more{cursor:pointer}
+  .mc-menu{position:absolute;top:34px;right:9px;z-index:6}
+  .mcard{position:relative}
+  .mc-more{position:absolute;top:9px;right:9px;width:24px;height:24px;border-radius:6px;background:var(--paper);border:1px solid var(--hair);color:var(--muted);font-size:15px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:4}
+  .mcard:hover .mc-more,.mc-more.open{display:flex}
+  .mc-more:hover{color:var(--accent);border-color:var(--accent)}
   .ag-badge-btn{cursor:pointer}
   .ag-badge-btn:hover{background:rgba(255,255,255,.26)}
   .cadcv{font-size:9px;opacity:.85;margin-left:1px}
@@ -623,6 +633,9 @@
   .he-sub{font-family:"IBM Plex Mono",monospace;font-size:11px;color:rgba(255,255,255,.55);margin-top:5px}
   .he-pills{display:flex;gap:8px;margin-top:9px}
   .he-pill{font-family:"Archivo",sans-serif;font-weight:600;font-size:10px;color:#fff;background:rgba(255,255,255,.14);border-radius:20px;padding:2px 9px}
+  .hist-entry.skipped{border-left-color:#BA7517;background:rgba(255,255,255,.04)}
+  .hist-entry.skipped:hover{background:rgba(255,255,255,.07);border-left-color:#BA7517}
+  .he-pill.skip{background:rgba(186,117,23,.28);color:#F2C98A}
   .he-del{flex:none;border:0;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:6px;line-height:1}
   .he-del:hover{color:#FF9B9B;background:rgba(255,255,255,.08)}
   .hist-clear{margin-top:12px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1);text-align:center}
@@ -851,6 +864,7 @@
         <button type="button" class="dt-input" id="agDate" aria-label="Meeting date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> <span id="agDateText">Set date</span></button>
         <button type="button" class="dt-input" id="agTime" aria-label="Meeting time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> <span id="agTimeText">Set time</span></button>
         <a id="agGcal" class="dt-input gc-hero-link" target="_blank" rel="noopener" title="Open in Google Calendar" style="display:none;text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> <span>Google Calendar</span></a>
+        <button type="button" class="ag-skip" id="agSkip" title="Skip this occurrence and move to the next date" style="display:none">Skip &rarr;</button>
       </div>
       <button class="hist-link" id="histLink" title="View past agendas for this meeting"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg> <span id="histLinkText">past agendas</span></button>
     </div>
@@ -934,6 +948,10 @@
 
 <div class="nm-overlay" id="ceOverlay">
   <div class="nm-modal" role="dialog" aria-label="Client branding" id="ceBody"></div>
+</div>
+
+<div class="nm-overlay" id="skOverlay">
+  <div class="nm-modal" role="dialog" aria-label="Skip occurrence" id="skBody" style="width:min(420px,100%)"></div>
 </div>
 
 <input type="file" id="apFileInput" accept="image/*" multiple style="display:none">
@@ -1071,6 +1089,8 @@ function fillHeader(){
   if(tt)tt.classList.toggle("placeholder",!S.time);
   const gc=document.getElementById("agGcal");
   if(gc){const s=activeSeries();if(s&&s.gcalLink){gc.href=s.gcalLink;gc.style.display="";}else{gc.style.display="none";gc.removeAttribute("href");}}
+  const sk=document.getElementById("agSkip");
+  if(sk){const s=activeSeries();sk.style.display=canSkip(s)?"":"none";}
 }
 function bindDateTime(){
   const dd=document.getElementById("agDate");if(dd)dd.onclick=(e)=>{e.stopPropagation();openDatePicker(dd);};
@@ -1781,7 +1801,14 @@ function copyText(text,btn,label){
 document.getElementById("copyBtn").onclick=function(){copyText(buildSummary(S),this,"Copy summary");};
 
 /* ---- history / recurring meetings ---- */
-function updateHistBtn(){const l=document.getElementById("histLink"),t=document.getElementById("histLinkText");if(!l)return;if(LOG.length){t.textContent=LOG.length+(LOG.length===1?" past agenda":" past agendas");l.style.display="";}else{l.style.display="none";}}
+function updateHistBtn(){
+  const l=document.getElementById("histLink"),t=document.getElementById("histLinkText");if(!l)return;
+  if(LOG.length){
+    const anySkip=LOG.some(e=>e.skipped||!e.snap);
+    t.textContent=anySkip?(LOG.length+" in history"):(LOG.length+(LOG.length===1?" past agenda":" past agendas"));
+    l.style.display="";
+  }else l.style.display="none";
+}
 function hasContent(){return (S.title||"").trim()||S.topics.some(t=>(t.title||"").trim()||t.points.some(p=>ptText(p).trim()))||S.actions.some(a=>a.t.trim())||(S.purpose||"").trim();}
 
 function archiveWeek(){
@@ -1811,6 +1838,46 @@ function archiveWeek(){
 document.getElementById("weekBtn").onclick=archiveWeek;
 document.getElementById("printBtn").onclick=()=>printSnapshot(S);
 
+/* ---- skip an occurrence ---- */
+function canSkip(s){return !!(s&&s.recurring&&s.cadence&&s.cadence!=="none");}
+function skipOccurrence(s,newDate){
+  const was=(s.cur&&s.cur.date)||"";
+  s.log=s.log||[];
+  s.log.unshift({id:uid(),at:Date.now(),label:((s.cur&&s.cur.title)||s.name||"Untitled meeting").trim(),date:was?fmtDateDisp(was):"",skipped:true});
+  s.cur.date=newDate||"";
+  save();
+  if(s.id===DB.activeId){bindActive();fillHeader();updateHistBtn();}
+  renderRail();renderHome();
+}
+function closeSkip(){const o=document.getElementById("skOverlay");if(o)o.classList.remove("open");}
+function openSkipDialog(s){
+  let next=nextDate((s.cur&&s.cur.date)||"",s.cadence,s.cadenceDays)||"";
+  const body=document.getElementById("skBody");
+  function draw(){
+    body.innerHTML="";
+    const h=document.createElement("div");h.className="nm-title";h.textContent="Skip this occurrence?";body.append(h);
+    const p=document.createElement("div");p.style.cssText="font-size:13.5px;color:var(--ink-soft);line-height:1.55";
+    const was=(s.cur&&s.cur.date)?fmtDateDisp(s.cur.date):"this occurrence";
+    p.innerHTML="This skips <b>"+esc(s.name||"this meeting")+"</b> on <b>"+esc(was)+"</b> and moves it to the date below.<br><br>Nothing is archived — your topics, actions and parked items all carry over. A note is added to this meeting's history.";
+    body.append(p);
+    const row=document.createElement("div");row.className="sk-row";
+    const k=document.createElement("span");k.className="k";k.textContent="Next meeting";
+    const b=document.createElement("button");b.className="dt-input"+(next?"":" placeholder");
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> <span>'+(next?esc(fmtDateShort(next)):"Pick a date")+'</span>';
+    b.onclick=(e)=>{e.stopPropagation();openDatePicker(b,()=>next,(v)=>{next=v;draw();});};
+    row.append(k,b);body.append(row);
+    const foot=document.createElement("div");foot.className="nm-actions";
+    const cancel=document.createElement("button");cancel.className="nm-btn";cancel.textContent="Cancel";cancel.onclick=closeSkip;
+    const go=document.createElement("button");go.className="nm-btn primary";
+    go.textContent=next?("Skip to "+fmtDateShort(next)):"Pick a date first";
+    if(!next){go.disabled=true;go.style.opacity=".55";go.style.cursor="default";}
+    else go.onclick=()=>{skipOccurrence(s,next);closeSkip();};
+    foot.append(cancel,go);body.append(foot);
+  }
+  draw();
+  document.getElementById("skOverlay").classList.add("open");
+}
+
 /* drawer */
 function openHistory(){
   document.getElementById("histOverlay").classList.add("open");
@@ -1838,18 +1905,27 @@ function showHistList(){
     b.append(e);
   } else {
     LOG.forEach(entry=>{
-      const row=document.createElement("div");row.className="hist-entry";
+      const skipped=!!entry.skipped||!entry.snap;
+      const row=document.createElement("div");row.className="hist-entry"+(skipped?" skipped":"");
       const main=document.createElement("div");main.className="he-main";
       const tt=document.createElement("div");tt.className="he-title";tt.textContent=entry.label||"Untitled meeting";
       const sub=document.createElement("div");sub.className="he-sub";
-      sub.textContent=(entry.date?entry.date+"  \u00b7  ":"")+"archived "+fmtDate(entry.at);
-      const nT=entry.snap.topics.length, nA=(entry.snap.actions||[]).filter(a=>a.t&&a.t.trim()).length;
       const pills=document.createElement("div");pills.className="he-pills";
-      pills.innerHTML='<span class="he-pill">'+nT+" topic"+(nT!==1?"s":"")+'</span><span class="he-pill">'+nA+" action"+(nA!==1?"s":"")+'</span>';
-      main.append(tt,sub,pills);
-      main.onclick=()=>showHistDetail(entry.id);
+      if(skipped){
+        sub.textContent=(entry.date?entry.date+"  \u00b7  ":"")+"noted "+fmtDate(entry.at);
+        pills.innerHTML='<span class="he-pill skip">Meeting skipped</span>';
+        main.append(tt,sub,pills);
+        main.style.cursor="default";
+      }else{
+        sub.textContent=(entry.date?entry.date+"  \u00b7  ":"")+"archived "+fmtDate(entry.at);
+        const nT=(entry.snap.topics||[]).length, nA=(entry.snap.actions||[]).filter(a=>a.t&&a.t.trim()).length;
+        pills.innerHTML='<span class="he-pill">'+nT+" topic"+(nT!==1?"s":"")+'</span><span class="he-pill">'+nA+" action"+(nA!==1?"s":"")+'</span>';
+        main.append(tt,sub,pills);
+        main.onclick=()=>showHistDetail(entry.id);
+      }
       const del=document.createElement("button");del.className="he-del";del.innerHTML="&times;";del.title="Delete this entry";
-      del.onclick=(ev)=>{ev.stopPropagation();if(confirm("Delete this archived agenda? This can't be undone.")){const s=activeSeries();s.log=s.log.filter(x=>x.id!==entry.id);LOG=s.log;save();updateHistBtn();renderRail();showHistList();}};
+      del.title=skipped?"Delete this note":"Delete this entry";
+      del.onclick=(ev)=>{ev.stopPropagation();if(confirm(skipped?"Delete this skipped-meeting note?":"Delete this archived agenda? This can't be undone.")){const s=activeSeries();s.log=s.log.filter(x=>x.id!==entry.id);LOG=s.log;save();updateHistBtn();renderRail();showHistList();}};
       row.append(main,del);b.append(row);
     });
   }
@@ -1887,7 +1963,7 @@ function snapshotHTML(ag){
 }
 
 function showHistDetail(id){
-  const entry=LOG.find(x=>x.id===id);if(!entry)return;
+  const entry=LOG.find(x=>x.id===id);if(!entry||!entry.snap)return;
   const b=document.getElementById("histBody");b.className="hist-body detail";b.innerHTML="";
   const head=document.createElement("div");head.className="snap-head";
   const back=document.createElement("button");back.className="snap-back";back.innerHTML="\u2190 All history";back.onclick=showHistList;
@@ -2181,6 +2257,8 @@ document.getElementById("railBackHome").onclick=goHome;
 document.getElementById("ceOverlay").onclick=(e)=>{if(e.target.id==="ceOverlay")closeClientEditor();};
 document.getElementById("gcOverlay").onclick=(e)=>{if(e.target.id==="gcOverlay")closeReview();};
 document.getElementById("apOverlay").onclick=(e)=>{if(e.target.id==="apOverlay")closeActionPanel();};
+document.getElementById("skOverlay").onclick=(e)=>{if(e.target.id==="skOverlay")closeSkip();};
+document.getElementById("agSkip").onclick=(e)=>{e.stopPropagation();const s=activeSeries();if(canSkip(s))openSkipDialog(s);};
 document.getElementById("stabGeneral").onclick=()=>setSettingsTab("general");
 document.getElementById("stabAppearance").onclick=()=>setSettingsTab("appearance");
 document.getElementById("stabClients").onclick=()=>setSettingsTab("clients");
@@ -2199,7 +2277,7 @@ document.getElementById("railActions").onclick=goActions;
 document.getElementById("searchInput").addEventListener("input",runGlobalSearch);
 document.getElementById("searchOverlay").onclick=(e)=>{if(e.target.id==="searchOverlay")closeSearch();};
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeSearch();closeActionPanel();}
+  if(e.key==="Escape"){closeSearch();closeActionPanel();closeSkip();}
   else if(e.key==="/"){const t=e.target;if(t&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable))return;if(document.querySelector(".nm-overlay.open"))return;e.preventDefault();openSearch();}
 });
 
@@ -2252,6 +2330,9 @@ function meetingCard(s,showDay){
   if(date){dl.className="mc-line";dl.innerHTML=IC_CAL+"<span>"+(showDay?fmtDayDate(date):fmtDateDisp(date))+(time?" \u00b7 "+fmtTimeDisp(time):"")+"</span>";}
   else{dl.className="mc-line muted";dl.innerHTML=IC_CAL+"<span>No date set</span>";}
   c.append(dl);
+  const more=document.createElement("button");more.className="mc-more";more.innerHTML="⋯";more.title="Meeting options";
+  more.onclick=(e)=>{e.stopPropagation();openCardMenu(s,more);};
+  c.append(more);
   if(s.gcalLink){const g=document.createElement("a");g.className="mc-gcal";g.href=s.gcalLink;g.target="_blank";g.rel="noopener";g.title="Open in Google Calendar";g.innerHTML=GCAL_ICON+' <span>Google Calendar</span>';g.onclick=(e)=>e.stopPropagation();c.append(g);}
   c.onclick=()=>openMeeting(s.id);
   return c;
@@ -2641,6 +2722,19 @@ function heroCard(s){
   c.append(eye,mid,foot);
   c.onclick=()=>openMeeting(s.id);
   return c;
+}
+function openCardMenu(s,anchor){
+  closeSMenu();
+  const m=document.createElement("div");m.className="smenu";m.id="smenu";
+  if(canSkip(s)){const b=document.createElement("button");b.textContent="Skip this occurrence…";b.onclick=()=>{closeSMenu();openSkipDialog(s);};m.append(b);}
+  const ba=document.createElement("button");ba.textContent="Archive meeting";ba.onclick=()=>{closeSMenu();archiveSeries(s);};
+  const bd=document.createElement("button");bd.className="danger";bd.textContent="Delete meeting";bd.onclick=()=>{closeSMenu();deleteSeries(s);};
+  m.append(ba,bd);
+  document.body.append(m);
+  const r=anchor.getBoundingClientRect();
+  m.style.top=(window.scrollY+r.bottom+4)+"px";
+  m.style.left=(window.scrollX+Math.min(r.left,window.innerWidth-m.offsetWidth-8))+"px";
+  setTimeout(()=>{document.addEventListener("click",sOutside);document.addEventListener("keydown",sEsc);},0);
 }
 function renderHome(){
   const w=document.getElementById("homeView");if(!w)return;w.innerHTML="";
