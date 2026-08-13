@@ -586,7 +586,7 @@
   .total b{color:var(--ink);font-weight:500}
 
   .acts{display:flex;flex-direction:column;gap:2px}
-  .act{display:grid;grid-template-columns:20px minmax(0,1fr) 15px 122px 82px 16px 18px;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--hair)}
+  .act{display:grid;grid-template-columns:20px minmax(0,1fr) 18px 122px 82px 18px;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--hair)}
   .act>.box{margin-top:0}
   .act>.act-due,.act>.atag{justify-self:start;margin-top:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .act:last-child{border-bottom:0}
@@ -784,7 +784,7 @@
   .apo-gdot{width:9px;height:9px;border-radius:50%;flex:none}
   .apo-gnm{font-family:"Archivo",sans-serif;font-size:13px;font-weight:600;color:var(--ink)}
   .apo-gcnt{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);background:var(--card);border:1px solid var(--hair);border-radius:99px;padding:1px 7px}
-  .apo-row{display:grid;grid-template-columns:20px minmax(0,1fr) 15px 122px 82px 16px 18px;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:10px;padding:11px 14px;margin:0 0 8px 14px;cursor:pointer;box-shadow:var(--shadow)}
+  .apo-row{display:grid;grid-template-columns:20px minmax(0,1fr) 18px 122px 82px 18px;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:10px;padding:11px 14px;margin:0 0 8px 14px;cursor:pointer;box-shadow:var(--shadow)}
   .apo-row:hover{border-color:var(--accent)}
   .apo-row>.atag,.apo-row>.act-due{justify-self:start;margin-top:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .apo-cb{width:19px;height:19px;border-radius:5px;border:1.5px solid var(--hair-strong);background:none;flex:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
@@ -794,11 +794,11 @@
   .apo-tx{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.35;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .apo-tx.done{color:var(--faint);text-decoration:line-through}
   /* ---- action notes / detail panel ---- */
-  .nslot{display:flex;align-items:center;justify-content:center;justify-self:center}
-  .nslot svg{display:block}
-  .act-exp,.apo-exp{border:0;background:none;padding:0;color:var(--faint);cursor:pointer;display:flex;align-items:center;justify-content:center;justify-self:center;opacity:0;transition:opacity .12s}
-  .act:hover .act-exp,.apo-row:hover .apo-exp,.act-exp:focus,.apo-exp:focus{opacity:1}
-  .act-exp:hover,.apo-exp:hover{color:var(--accent)}
+  .nbtn{width:18px;height:18px;border:0;background:none;padding:0;color:var(--faint);cursor:pointer;display:flex;align-items:center;justify-content:center;justify-self:center;opacity:0;transition:opacity .12s,color .12s}
+  .nbtn svg{display:block}
+  .nbtn.has{opacity:1}
+  .act:hover .nbtn,.apo-row:hover .nbtn,.nbtn:focus{opacity:1}
+  .nbtn:hover{color:var(--accent)}
   .ap-title{font-family:"Newsreader",serif;font-size:19px;color:var(--ink);line-height:1.3;outline:none;border-radius:4px}
   .ap-title:focus{box-shadow:0 0 0 2px var(--accent-soft),0 0 0 3px var(--accent);background:#fff}
   .ap-lab{font-family:"Archivo",sans-serif;font-weight:700;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:16px 0 7px}
@@ -1505,8 +1505,8 @@ function renderActions(){
     tag.onclick=(e)=>{e.stopPropagation();openActionClientMenu(a,tag,renderActions);};
     const rm=document.createElement("button");rm.className="rm";rm.textContent="\u00d7";
     rm.onclick=()=>{S.actions.splice(i,1);save();renderActions();};
-    const exp=expandBtn(()=>openActionPanel(a,{series:activeSeries(),rerender:renderActions,onDelete:()=>{S.actions.splice(i,1);save();renderActions();}}),"Notes & details");
-    row.append(box,t,noteSlot(a),tag,due,exp,rm);w.append(row);
+    const nb=noteBtn(a,()=>openActionPanel(a,{series:activeSeries(),rerender:renderActions,onDelete:()=>{S.actions.splice(i,1);save();renderActions();}}));
+    row.append(box,t,nb,tag,due,rm);w.append(row);
   });
   updateActionsNav();
 }
@@ -1618,10 +1618,16 @@ function drawActionPanel(){
 
 /* ---- action notes + attachments ---- */
 const ICO_NOTE='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11l-4 4H4z"/><path d="M8 10h8M8 14h5"/></svg>';
-const ICO_CHEV_R='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 function hasActionNotes(a){return !!(rtext(a&&a.notes).trim()||((a&&a.shots)||[]).length);}
-function noteSlot(a){const s=document.createElement("span");s.className="nslot";if(hasActionNotes(a)){s.innerHTML=ICO_NOTE;s.style.color="var(--faint)";s.title="Has notes";}return s;}
-function expandBtn(open,label){const b=document.createElement("button");b.className="act-exp";b.innerHTML=ICO_CHEV_R;b.title=label||"Open details";b.onclick=(e)=>{e.stopPropagation();open();};return b;}
+function noteBtn(a,open){
+  const has=hasActionNotes(a);
+  const b=document.createElement("button");b.className="nbtn"+(has?" has":"");
+  b.innerHTML=ICO_NOTE;
+  b.title=has?"View or edit notes":"Add notes & details";
+  b.setAttribute("aria-label",b.title);
+  b.onclick=(e)=>{e.stopPropagation();open();};
+  return b;
+}
 function compressImage(file,maxDim,quality){
   return new Promise((res,rej)=>{
     const rd=new FileReader();
@@ -3672,9 +3678,8 @@ function actionRowEl(r){
     else if(r.series&&r.series.cur&&Array.isArray(r.series.cur.actions)){r.series.cur.actions=r.series.cur.actions.filter(z=>z!==r.action);}
     save();renderActionsPage();updateActionsNav();
   };
-  const exp=expandBtn(()=>openActionPanel(r.action,{series:r.series,archived:r.archived,entryId:r.entryId,rerender:renderActionsPage,onDelete:r.archived?null:del}),"Notes & details");
-  exp.className="apo-exp";
-  row.append(cb,tx,noteSlot(r.action),tag,due,exp);
+  const nb=noteBtn(r.action,()=>openActionPanel(r.action,{series:r.series,archived:r.archived,entryId:r.entryId,rerender:renderActionsPage,onDelete:r.archived?null:del}));
+  row.append(cb,tx,nb,tag,due);
   if(r.standalone){
     const x=document.createElement("button");x.className="rm";x.textContent="×";x.title="Delete action";
     x.onclick=(e)=>{e.stopPropagation();del();};
