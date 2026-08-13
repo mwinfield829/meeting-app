@@ -1518,7 +1518,11 @@ function defaultActionClient(){const s=activeSeries();if(!s)return null;return s
 
 /* ---- action detail panel ---- */
 let apCtx=null;
-function closeActionPanel(){apCtx=null;const o=document.getElementById("apOverlay");if(o)o.classList.remove("open");}
+function closeActionPanel(){
+  const cur=apCtx;apCtx=null;
+  const o=document.getElementById("apOverlay");if(o)o.classList.remove("open");
+  if(cur&&cur.ctx&&cur.ctx.onClose)cur.ctx.onClose();
+}
 function openActionPanel(a,ctx){
   apCtx={a:a,ctx:ctx||{}};
   drawActionPanel();
@@ -3685,10 +3689,20 @@ function renderActionsPage(){
   const add=document.createElement("button");add.className="home-new";add.innerHTML='<span style="font-size:15px;font-weight:700">+</span> Add action';
   add.onclick=()=>{
     DB.standaloneActions=DB.standaloneActions||[];
-    DB.standaloneActions.push({id:uid(),t:"",owner:"",done:false,due:"",clientId:null});
+    const a={id:uid(),t:"",owner:"",done:false,due:"",clientId:null,notes:"",shots:[]};
+    DB.standaloneActions.push(a);
     const f=DB.ui.actFilter||"open";if(f!=="open"&&f!=="all")DB.ui.actFilter="open";
     save();renderActionsPage();
-    const els=document.querySelectorAll("#actionsView .apo-tx[contenteditable]");const el=els[els.length-1];if(el)el.focus();
+    const drop=()=>{DB.standaloneActions=(DB.standaloneActions||[]).filter(z=>z!==a);save();renderActionsPage();updateActionsNav();};
+    openActionPanel(a,{
+      rerender:renderActionsPage,
+      onDelete:drop,
+      onClose:()=>{
+        const empty=!rtext(a.t).trim()&&!rtext(a.notes).trim()&&!((a.shots||[]).length);
+        if(empty)drop();else{save();renderActionsPage();updateActionsNav();}
+      }
+    });
+    setTimeout(()=>{const t=document.querySelector("#apBody .ap-title");if(t){t.focus();placeCaretEnd(t);}},30);
   };
   head.append(add);
   w.append(head);
