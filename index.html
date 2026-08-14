@@ -3628,12 +3628,12 @@ function renderCalendarTab(w){
 function fmtDue(iso){const d=parseISO(iso);return d?d.toLocaleDateString(undefined,{month:"short",day:"numeric"}):"";}
 function isOverdue(iso){const d=parseISO(iso);if(!d)return false;const t=new Date();t.setHours(0,0,0,0);return d.getTime()<t.getTime();}
 function byDue(a,b){const da=a.action.due||"",db=b.action.due||"";if(da&&db)return da<db?-1:(da>db?1:0);if(da)return -1;if(db)return 1;return 0;}
-function updateActionsNav(){const el=document.getElementById("railActionsCount");if(!el)return;let n=DB.series.filter(s=>!s.archived).reduce((a,s)=>a+(((s.cur&&s.cur.actions)||[]).filter(x=>!x.done&&(x.t||"").trim()).length),0);n+=(DB.standaloneActions||[]).filter(x=>!x.done&&(x.t||"").trim()).length;el.textContent=n;el.style.display=n?"":"none";}
+function updateActionsNav(){const el=document.getElementById("railActionsCount");if(!el)return;let n=DB.series.reduce((a,s)=>a+(((s.cur&&s.cur.actions)||[]).filter(x=>!x.done&&(x.t||"").trim()).length),0);n+=(DB.standaloneActions||[]).filter(x=>!x.done&&(x.t||"").trim()).length;el.textContent=n;el.style.display=n?"":"none";}
 function goActions(){view="actions";applyView();applyBrand();renderActionsPage();renderRail();}
 function actionsRows(){
   const f=DB.ui.actFilter||"open";const rows=[];
   const pushHistory=(pred)=>{DB.series.forEach(s=>{(s.log||[]).forEach(e=>{(((e.snap&&e.snap.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(pred&&!pred(a))return;rows.push({series:s,action:a,archived:true,when:e.date||fmtDate(e.at),entryId:e.id});});});});};
-  DB.series.filter(s=>!s.archived).forEach(s=>{(((s.cur&&s.cur.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:s,action:a,archived:false});});});
+  DB.series.forEach(s=>{(((s.cur&&s.cur.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:s,action:a,archived:false});});});
   (DB.standaloneActions||[]).forEach(a=>{if(f==="open"&&a.done)return;if(f==="completed"&&!a.done)return;rows.push({series:null,action:a,archived:false,standalone:true});});
   if(f==="completed"||f==="all")pushHistory(a=>a.done);
   return rows;
