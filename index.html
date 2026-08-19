@@ -529,19 +529,28 @@
   .tb-mk .dia{width:7px;height:7px;border-radius:2px;background:var(--accent-3);transform:rotate(45deg);margin-left:1px}
   .tb-mk svg{display:block}
   .ttitle{flex:1;font-size:19px;font-weight:500;line-height:1.3}
-  .points{list-style:none;padding:0;margin:8px 0 0 24px}
+  .points{list-style:none;padding:0;margin:8px 0 0 48px}
   .points li{display:flex;gap:9px;align-items:flex-start;padding:2px 0;font-size:15px;color:var(--ink-soft)}
   .points li .b{flex:none;margin-top:10px;width:4px;height:4px;border-radius:50%;background:var(--accent-3);opacity:.7}
   .points li .pt{flex:1}
   .points li .rm{opacity:0}
   .points li:hover .rm{opacity:1}
-  .pt-del{flex:none;width:16px;height:16px;border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;margin-top:3px}
-  .pt-del .dot{width:5px;height:5px;border-radius:50%;background:var(--accent-3);opacity:.7;transition:opacity .1s}
-  .pt-del .xx{position:absolute;color:#c0392b;font-size:16px;line-height:1;opacity:0;transition:opacity .1s}
-  .points li:hover .pt-del .dot,.park li:hover .pt-del .dot{opacity:0}
-  .points li:hover .pt-del .xx,.park li:hover .pt-del .xx{opacity:1}
-  .park li .pt-del{margin-top:4px}
-  .park li .pt-del .dot{background:var(--faint)}
+  /* left marker: bullet, doubling as the pin toggle on standing topics */
+  .pt-mk{flex:none;width:16px;height:16px;margin-top:4px;border:0;background:none;padding:0;display:flex;align-items:center;justify-content:center;position:relative}
+  button.pt-mk{cursor:pointer}
+  .pt-mk .dot{width:5px;height:5px;border-radius:50%;background:var(--accent-3);opacity:.7;transition:opacity .1s}
+  .pt-mk .pin{position:absolute;display:flex;color:var(--faint);opacity:0;transition:opacity .1s,color .12s}
+  .pt-mk .pin svg{width:11px;height:11px;display:block}
+  .points li:hover button.pt-mk .dot{opacity:0}
+  .points li:hover button.pt-mk .pin{opacity:1}
+  .pt-mk.pinned .dot{opacity:0}
+  .pt-mk.pinned .pin{opacity:1;color:var(--accent-2)}
+  button.pt-mk:hover .pin{color:var(--accent)}
+  .park li .pt-mk .dot{background:var(--faint)}
+  /* right delete */
+  .pt-x{flex:none;border:0;background:none;color:var(--faint);font-size:15px;line-height:1;cursor:pointer;padding:0 2px;margin-top:2px;opacity:0;transition:opacity .12s,color .12s}
+  .points li:hover .pt-x,.park li:hover .pt-x,.pt-x:focus{opacity:1}
+  .pt-x:hover{color:#c0392b}
   .pt-toggle,.pt-spacer{flex:none;width:16px;margin-top:3px}
   .pt-spacer{display:block;height:1px}
   .pt-toggle{border:0;background:none;color:var(--muted);cursor:pointer;font-size:10px;line-height:1;padding:4px 0;text-align:center;border-radius:5px;transition:.12s}
@@ -551,11 +560,6 @@
   .pt-collapsed-note{margin:6px 0 0 24px;font-family:"Archivo",sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--muted);cursor:pointer;display:inline-block}
   .pt-collapsed-note:hover{color:var(--accent)}
   .points:empty{margin:0}
-  .pt-pin{flex:none;border:0;background:none;padding:0 2px;margin-top:3px;color:var(--faint);cursor:pointer;display:flex;opacity:0;transition:opacity .12s,color .12s}
-  .pt-pin svg{width:11px;height:11px;display:block}
-  .pt-pin.on{opacity:1;color:var(--accent-2)}
-  .points li:hover .pt-pin,.pt-pin:focus{opacity:1}
-  .pt-pin:hover{color:var(--accent)}
 
   /* always-visible delete on each box */
   .tb-del{position:absolute;top:10px;right:10px;width:24px;height:24px;border:1px solid transparent;background:none;color:var(--faint);cursor:pointer;border-radius:6px;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;transition:.12s}
@@ -1452,8 +1456,16 @@ function renderTopics(){
     const ul=document.createElement("ul");ul.className="points";
     tp.points.forEach((p,pi)=>{
       const li=document.createElement("li");li.style.marginLeft=(ptLvl(p)*22)+"px";
-      const del=document.createElement("button");del.className="pt-del";del.title="Delete sub-point";
-      del.innerHTML='<span class="dot"></span><span class="xx">×</span>';
+      const kept=ptKeep(p);
+      const mk=document.createElement(tp.standing?"button":"span");
+      mk.className="pt-mk"+(kept?" pinned":"");
+      mk.innerHTML='<span class="dot"></span>'+(tp.standing?'<span class="pin">'+ICO_PIN+'</span>':'');
+      if(tp.standing){
+        mk.title=kept?"Pinned — carries to the next meeting":"Pin so this carries to the next meeting";
+        mk.setAttribute("aria-label",mk.title);
+        mk.onclick=(e)=>{e.stopPropagation();p.keep=!kept;save();renderTopics();};
+      }
+      const del=document.createElement("button");del.className="pt-x";del.textContent="×";del.title="Delete sub-point";
       del.onclick=()=>{tp.points.splice(pi,1);save();renderTopics();};
       const pt=document.createElement("span");pt.className="pt";pt.contentEditable=true;pt.dataset.ph="Sub-point";
       bindRich(pt,()=>ptText(p),(html)=>{p.t=html;});
@@ -1462,17 +1474,7 @@ function renderTopics(){
         else if(ev.key==="Enter"){ev.preventDefault();tp.points.splice(pi+1,0,{t:"",lvl:ptLvl(p)});save();_focusPoint={tid:tp.id,idx:pi+1};renderTopics();}
       });
       if(_focusPoint&&_focusPoint.tid===tp.id&&_focusPoint.idx===pi){const el=pt;setTimeout(()=>{el.focus();placeCaretEnd(el);},0);}
-      li.append(del,pt);
-      if(tp.standing){
-        const kept=ptKeep(p);
-        const pinb=document.createElement("button");pinb.className="pt-pin"+(kept?" on":"");
-        pinb.innerHTML=ICO_PIN;
-        pinb.title=kept?"Pinned — carries to the next meeting":"Pin so this carries to the next meeting";
-        pinb.setAttribute("aria-label",pinb.title);
-        pinb.onclick=(e)=>{e.stopPropagation();p.keep=!kept;save();renderTopics();};
-        li.append(pinb);
-      }
-      ul.append(li);
+      li.append(mk,pt,del);ul.append(li);
     });
 
     const bt=document.createElement("div");bt.className="boxtools";
@@ -1676,12 +1678,12 @@ function renderPark(){
   const w=document.getElementById("park");w.innerHTML="";
   S.park.forEach((p,i)=>{
     const li=document.createElement("li");
-    const del=document.createElement("button");del.className="pt-del";del.title="Delete item";
-    del.innerHTML='<span class="dot"></span><span class="xx">\u00d7</span>';
+    const mk=document.createElement("span");mk.className="pt-mk";mk.innerHTML='<span class="dot"></span>';
+    const del=document.createElement("button");del.className="pt-x";del.textContent="\u00d7";del.title="Delete item";
     del.onclick=()=>{S.park.splice(i,1);save();renderPark();};
     const pt=document.createElement("span");pt.className="pt";pt.contentEditable=true;pt.dataset.ph="Deferred item";pt.textContent=p;
     pt.addEventListener("input",()=>{S.park[i]=pt.textContent;save();});
-    li.append(del,pt);w.append(li);
+    li.append(mk,pt,del);w.append(li);
   });
 }
 
