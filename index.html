@@ -551,6 +551,11 @@
   .pt-collapsed-note{margin:6px 0 0 24px;font-family:"Archivo",sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--muted);cursor:pointer;display:inline-block}
   .pt-collapsed-note:hover{color:var(--accent)}
   .points:empty{margin:0}
+  .pt-pin{flex:none;border:0;background:none;padding:0 2px;margin-top:3px;color:var(--faint);cursor:pointer;display:flex;opacity:0;transition:opacity .12s,color .12s}
+  .pt-pin svg{width:11px;height:11px;display:block}
+  .pt-pin.on{opacity:1;color:var(--accent-2)}
+  .points li:hover .pt-pin,.pt-pin:focus{opacity:1}
+  .pt-pin:hover{color:var(--accent)}
 
   /* always-visible delete on each box */
   .tb-del{position:absolute;top:10px;right:10px;width:24px;height:24px;border:1px solid transparent;background:none;color:var(--faint);cursor:pointer;border-radius:6px;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;transition:.12s}
@@ -1070,7 +1075,7 @@ function load(){
   DB.clients.forEach(c=>{if(!Array.isArray(c.colors))c.colors=[];c.colors=c.colors.filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);if(typeof c.archived!=="boolean")c.archived=false;if(typeof c.internalDefault!=="boolean")c.internalDefault=false;});
   if(!Array.isArray(DB.series)||!DB.series.length){const s=newSeries("Meeting 1",true);DB.series=[s];DB.activeId=s.id;}
   DB.series.forEach(s=>{if(s.category!=="internal")s.category="client";if(typeof s.recurring!=="boolean")s.recurring=true;if(s.recurring&&!s.cadence)s.cadence="weekly";if(typeof s.archived!=="boolean")s.archived=false;if(!("clientId" in s))s.clientId=null;if(s.clientId&&!clientById(s.clientId))s.clientId=null;if(!Array.isArray(s.log))s.log=[];if(!("gcalId" in s))s.gcalId=null;if(!("gcalLink" in s))s.gcalLink=null;if(!Array.isArray(s.cadenceDays))s.cadenceDays=[];});
-  DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.topics))s.cur.topics.forEach(t=>{if(Array.isArray(t.points))t.points=t.points.map(p=>(p&&typeof p==="object")?{t:p.t||"",lvl:Math.max(0,Math.min(3,p.lvl|0))}:{t:(p||""),lvl:0});});});
+  DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.topics))s.cur.topics.forEach(t=>{if(Array.isArray(t.points))t.points=t.points.map(p=>(p&&typeof p==="object")?{t:p.t||"",lvl:Math.max(0,Math.min(3,p.lvl|0)),keep:!!p.keep}:{t:(p||""),lvl:0,keep:false});});});
   DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.actions))s.cur.actions.forEach(a=>{if(!("clientId" in a))a.clientId=(seriesCat(s)==="internal")?null:(s.clientId||null);if(!("due" in a))a.due="";if(typeof a.notes!=="string")a.notes="";if(!Array.isArray(a.shots))a.shots=[];});});
   (DB.standaloneActions||[]).forEach(a=>{if(typeof a.notes!=="string")a.notes="";if(!Array.isArray(a.shots))a.shots=[];});
   if(!DB.activeId||!activeSeries())DB.activeId=DB.series[0].id;
@@ -1399,6 +1404,7 @@ function renderAttendees(){
 /* topics as green boxes */
 function ptText(p){return (p&&typeof p==="object")?(p.t||""):(p||"");}
 function ptLvl(p){return (p&&typeof p==="object"&&p.lvl)?Math.max(0,Math.min(3,p.lvl|0)):0;}
+function ptKeep(p){return !!(p&&typeof p==="object"&&p.keep);}
 function placeCaretEnd(el){try{const r=document.createRange();r.selectNodeContents(el);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
 let _focusPoint=null,tpDragIndex=null;
 function renderTopics(){
@@ -1456,7 +1462,17 @@ function renderTopics(){
         else if(ev.key==="Enter"){ev.preventDefault();tp.points.splice(pi+1,0,{t:"",lvl:ptLvl(p)});save();_focusPoint={tid:tp.id,idx:pi+1};renderTopics();}
       });
       if(_focusPoint&&_focusPoint.tid===tp.id&&_focusPoint.idx===pi){const el=pt;setTimeout(()=>{el.focus();placeCaretEnd(el);},0);}
-      li.append(del,pt);ul.append(li);
+      li.append(del,pt);
+      if(tp.standing){
+        const kept=ptKeep(p);
+        const pinb=document.createElement("button");pinb.className="pt-pin"+(kept?" on":"");
+        pinb.innerHTML=ICO_PIN;
+        pinb.title=kept?"Pinned — carries to the next meeting":"Pin so this carries to the next meeting";
+        pinb.setAttribute("aria-label",pinb.title);
+        pinb.onclick=(e)=>{e.stopPropagation();p.keep=!kept;save();renderTopics();};
+        li.append(pinb);
+      }
+      ul.append(li);
     });
 
     const bt=document.createElement("div");bt.className="boxtools";
@@ -1826,13 +1842,13 @@ function archiveWeek(){
   const sr=activeSeries();
   const nd=sr.recurring?nextDate(S.date,sr.cadence,sr.cadenceDays):"";
   const when=nd?(" The next meeting will be dated "+fmtDateDisp(nd)+"."):"";
-  if(!confirm("Save this agenda to History and start the next meeting?"+when+"\n\nCarried forward: standing topics (heading only), pushed topics (with sub-points), open actions, and parked items.\nReset: everything else, and completed actions (kept in the archived copy)."))return;
+  if(!confirm("Save this agenda to History and start the next meeting?"+when+"\n\nCarried forward: standing topics (heading + pinned sub-points), pushed topics (with sub-points), open actions, and parked items.\nReset: everything else, and completed actions (kept in the archived copy)."))return;
   const snap=JSON.parse(JSON.stringify(S));
   LOG.unshift({id:uid(),at:Date.now(),label:(S.title||"Untitled meeting").trim(),date:fmtDateDisp(S.date),snap:snap});
   const carriedTopics=[];
   S.topics.forEach(tp=>{
-    if(tp.pushed)carriedTopics.push({id:uid(),title:tp.title,points:tp.points.map(p=>({t:ptText(p),lvl:ptLvl(p)})),standing:!!tp.standing,pushed:false});
-    else if(tp.standing)carriedTopics.push({id:uid(),title:tp.title,points:[],standing:true,pushed:false});
+    if(tp.pushed)carriedTopics.push({id:uid(),title:tp.title,points:tp.points.map(p=>({t:ptText(p),lvl:ptLvl(p),keep:ptKeep(p)})),standing:!!tp.standing,pushed:false});
+    else if(tp.standing)carriedTopics.push({id:uid(),title:tp.title,points:tp.points.filter(ptKeep).map(p=>({t:ptText(p),lvl:ptLvl(p),keep:true})),standing:true,pushed:false});
   });
   if(!carriedTopics.length)carriedTopics.push({id:uid(),title:"",points:[]});
   const carriedActions=S.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",clientId:a.clientId||null}));
