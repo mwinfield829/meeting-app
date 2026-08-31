@@ -2818,7 +2818,11 @@ function renderHome(){
   }
   const nb=document.createElement("button");nb.className="hh-btn";nb.innerHTML='<span style="font-size:15px;font-weight:700">+</span> New meeting';nb.onclick=openNewMeeting;
   if(gcalClientId()){
-    const sb=document.createElement("button");sb.className="hh-btn hh-sync";sb.innerHTML=GCAL_ICON+' Sync calendar';sb.onclick=()=>syncCalendar(sb);
+    const ready=gcalReady();
+    const sb=document.createElement("button");sb.className="hh-btn hh-sync";
+    sb.innerHTML=GCAL_ICON+(ready?' ✓ Calendar synced':' Sync calendar');
+    sb.title=ready?"Connected — click to check for new meetings":"Connect and pull meetings from Google Calendar";
+    sb.onclick=()=>syncCalendar(sb);
     const grp=document.createElement("div");grp.style.display="flex";grp.style.gap="8px";grp.style.flexWrap="wrap";grp.append(sb,nb);
     htop.append(hl,grp);
   }else{htop.append(hl,nb);}
@@ -3422,6 +3426,11 @@ function drawClientEditor(){
 const GCAL_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
 const GCAL_SCOPE="https://www.googleapis.com/auth/calendar.readonly";
 let _gisPromise=null,_tokenClient=null,_gcalToken="",_gcalTokenExp=0;
+const GTOK_KEY="execAgenda.gtok";
+function gcalReady(){return !!(_gcalToken&&Date.now()<_gcalTokenExp-60000);}
+function restoreGcalToken(){try{const o=JSON.parse(localStorage.getItem(GTOK_KEY)||"null");if(o&&o.t&&o.e&&Date.now()<o.e-60000){_gcalToken=o.t;_gcalTokenExp=o.e;}}catch(e){}}
+function storeGcalToken(){try{localStorage.setItem(GTOK_KEY,JSON.stringify({t:_gcalToken,e:_gcalTokenExp}));}catch(e){}}
+function clearGcalToken(){try{localStorage.removeItem(GTOK_KEY);}catch(e){}}
 
 function gcalClientId(){return (DB.ui.gcal&&DB.ui.gcal.clientId||"").trim();}
 function localOrigin(){return (location.origin&&/^https?:/.test(location.origin))?location.origin:"http://localhost:8000";}
@@ -3448,6 +3457,7 @@ function ensureToken(interactive){
     _tokenClient.callback=(resp)=>{
       if(resp&&resp.access_token){
         _gcalToken=resp.access_token;_gcalTokenExp=Date.now()+((resp.expires_in||3600)*1000);
+        storeGcalToken();
         DB.ui.gcal.connected=true;save();res(_gcalToken);
       }else rej(new Error((resp&&resp.error_description)||(resp&&resp.error)||"authorization was cancelled"));
     };
@@ -3456,14 +3466,14 @@ function ensureToken(interactive){
 }
 function gcalDisconnect(){
   try{if(_gcalToken&&window.google&&google.accounts&&google.accounts.oauth2)google.accounts.oauth2.revoke(_gcalToken,()=>{});}catch(e){}
-  _gcalToken="";_gcalTokenExp=0;DB.ui.gcal.connected=false;save();renderSettings();renderHome();
+  _gcalToken="";_gcalTokenExp=0;clearGcalToken();DB.ui.gcal.connected=false;save();renderSettings();renderHome();
 }
 async function gcalFetch(){
   let token=await ensureToken(false);
   const now=new Date(),timeMax=new Date(now.getTime()+30*86400000);
   const url=()=>"https://www.googleapis.com/calendar/v3/calendars/primary/events?"+new URLSearchParams({timeMin:now.toISOString(),timeMax:timeMax.toISOString(),singleEvents:"true",orderBy:"startTime",maxResults:"250"});
   let r=await fetch(url(),{headers:{Authorization:"Bearer "+token}});
-  if(r.status===401){_gcalToken="";token=await ensureToken(true);r=await fetch(url(),{headers:{Authorization:"Bearer "+token}});}
+  if(r.status===401){_gcalToken="";clearGcalToken();token=await ensureToken(true);r=await fetch(url(),{headers:{Authorization:"Bearer "+token}});}
   if(!r.ok)throw new Error("calendar request failed ("+r.status+")");
   const j=await r.json();return j.items||[];
 }
@@ -3807,6 +3817,7 @@ applyBranding();
 initToolbar();
 renderAll();
 try{restoreBackupHandle();}catch(e){}
+try{restoreGcalToken();if(gcalReady())renderHome();}catch(e){}
 </script>
 </body>
 </html>
