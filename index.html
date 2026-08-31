@@ -481,6 +481,23 @@
   .ampm-row .tp-cell{font-family:"Archivo",sans-serif;font-weight:600;font-size:12px;padding:8px 0}
   .ag-skip{background:none;border:0;padding:0 0 1px;font-family:"Archivo",sans-serif;font-weight:600;font-size:11.5px;color:var(--hero-sub);border-bottom:1px solid rgba(255,255,255,.3);cursor:pointer;transition:.12s}
   .ag-skip:hover{color:#fff;border-bottom-color:#fff}
+  .mg-sub{font-size:12px;color:var(--muted);margin:2px 0 13px}
+  .mg-duo{display:grid;grid-template-columns:1fr 34px 1fr;gap:8px;align-items:stretch}
+  .mg-pick{border:1px solid var(--hair);border-radius:11px;padding:11px 12px;cursor:pointer;position:relative;background:var(--card);text-align:left}
+  .mg-pick.keep{border:2px solid var(--accent);background:var(--accent-wash);padding:10px 11px}
+  .mg-badge{position:absolute;top:-9px;left:10px;font-family:"Archivo",sans-serif;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:10px;padding:2px 8px}
+  .mg-pick.keep .mg-badge{background:var(--accent);color:#fff}
+  .mg-pick.gone .mg-badge{background:#F1F2F5;color:var(--muted)}
+  .mg-nm{font-family:"Newsreader",serif;font-size:13.5px;color:var(--ink);margin-top:4px;line-height:1.3}
+  .mg-pick.gone .mg-nm{color:var(--muted)}
+  .mg-st{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);margin-top:4px}
+  .mg-hint{font-family:"Archivo",sans-serif;font-size:9.5px;color:var(--faint);margin-top:6px}
+  .mg-pick.keep .mg-hint{color:var(--accent-ink)}
+  .mg-swap{align-self:center;width:30px;height:30px;border-radius:50%;background:var(--card);border:1px solid var(--hair-strong);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;padding:0}
+  .mg-swap:hover{border-color:var(--accent)}
+  .mg-list{margin:14px 0 0;padding:0;list-style:none}
+  .mg-list li{display:flex;gap:8px;font-size:12px;color:var(--ink-soft);line-height:1.5;padding:2px 0;font-family:"Archivo",sans-serif}
+  .mg-list .ic{color:var(--accent);flex:none;font-weight:700}
   .sk-row{display:flex;align-items:center;gap:10px;margin-top:14px}
   .sk-row .k{font-family:"Archivo",sans-serif;font-weight:600;font-size:11.5px;color:var(--muted);flex:none}
   .cl-more{cursor:pointer}
@@ -961,6 +978,10 @@
 
 <div class="nm-overlay" id="ceOverlay">
   <div class="nm-modal" role="dialog" aria-label="Client branding" id="ceBody"></div>
+</div>
+
+<div class="nm-overlay" id="mgOverlay">
+  <div class="nm-modal" role="dialog" aria-label="Merge meetings" id="mgBody" style="width:min(460px,100%)"></div>
 </div>
 
 <div class="nm-overlay" id="skOverlay">
@@ -1894,6 +1915,96 @@ function archiveWeek(){
 document.getElementById("weekBtn").onclick=archiveWeek;
 document.getElementById("printBtn").onclick=()=>printSnapshot(S);
 
+/* ---- merge two meetings ---- */
+function seriesStats(s){
+  const ag=(s.log||[]).filter(e=>e.snap&&!e.skipped).length;
+  const sk=(s.log||[]).filter(e=>e.skipped||!e.snap).length;
+  const cur=s.cur||{};
+  const topics=(cur.topics||[]).filter(t=>(rtext(t.title)||"").trim()||(t.points||[]).some(p=>ptText(p).trim())).length;
+  const acts=(cur.actions||[]).filter(a=>(a.t||"").trim()).length;
+  const park=(cur.park||[]).filter(p=>(p||"").trim()).length;
+  return {agendas:ag,skips:sk,topics:topics,actions:acts,park:park};
+}
+function mergeSeries(gone,keep){
+  // history: combine and keep newest-first
+  keep.log=(keep.log||[]).concat(gone.log||[]).sort((a,b)=>(b.at||0)-(a.at||0));
+  // live work moves into the keeper's current agenda
+  const gc=gone.cur||{},kc=keep.cur;
+  (gc.topics||[]).forEach(t=>{if((rtext(t.title)||"").trim()||(t.points||[]).some(p=>ptText(p).trim()))kc.topics.push(t);});
+  (gc.actions||[]).forEach(a=>{if((a.t||"").trim())kc.actions.push(a);});
+  (gc.park||[]).forEach(p=>{if((p||"").trim())kc.park.push(p);});
+  (gc.attendees||[]).forEach(at=>{if(at&&kc.attendees.indexOf(at)<0)kc.attendees.push(at);});
+  // calendar link: keeper's wins; adopt the goner's only if the keeper has none.
+  if(!keep.gcalId&&gone.gcalId){keep.gcalId=gone.gcalId;keep.gcalLink=gone.gcalLink||null;}
+  else if(gone.gcalId&&gone.gcalId!==keep.gcalId){
+    // park the goner's event in "skipped" so the next sync doesn't offer it as brand-new, pre-checked
+    DB.gcalSkipped=(DB.gcalSkipped||[]).filter(z=>z.key!==gone.gcalId);
+    DB.gcalSkipped.push({key:gone.gcalId,summary:gone.name||"Merged meeting",date:(gc.date||""),time:(gc.time||""),attendees:(gc.attendees||[]).slice(),link:gone.gcalLink||"",recurring:!!gone.recurring,at:Date.now()});
+  }
+  DB.series=DB.series.filter(x=>x.id!==gone.id);
+  if(DB.activeId===gone.id){DB.activeId=keep.id;bindActive();fillHeader();}
+  save();renderAll();
+}
+function closeMerge(){const o=document.getElementById("mgOverlay");if(o)o.classList.remove("open");}
+function openMergeDialog(a,b){
+  let keep=b,gone=a; // seeded: the meeting you clicked goes away, the target is kept
+  const body=document.getElementById("mgBody");
+  function card(s,isKeep){
+    const st=seriesStats(s);
+    const el=document.createElement("button");el.type="button";el.className="mg-pick "+(isKeep?"keep":"gone");
+    const cl=s.clientId?clientById(s.clientId):null;
+    const bits=[cl?cl.name:(seriesCat(s)==="internal"?"Internal":"Client"),s.recurring?cadenceLabel(s.cadence,s.cadenceDays):"One-off"];
+    const hist=st.agendas+st.skips;if(hist)bits.push(hist+" in history");
+    el.innerHTML='<span class="mg-badge">'+(isKeep?"✓ Kept":"Goes away")+'</span>'+
+      '<div class="mg-nm">'+esc(s.name||"Untitled meeting")+'</div>'+
+      '<div class="mg-st">'+esc(bits.join(" · "))+'</div>'+
+      '<div class="mg-hint">'+(isKeep?"Keeps its name, client, cadence & link":"History & open work move over")+'</div>';
+    el.onclick=()=>{if(!isKeep){keep=s;gone=(s===a)?b:a;draw();}};
+    return el;
+  }
+  function draw(){
+    body.innerHTML="";
+    const h=document.createElement("div");h.className="nm-title";h.textContent="Merge these meetings?";body.append(h);
+    const sub=document.createElement("div");sub.className="mg-sub";sub.textContent="Click a meeting to keep it, or use ⇄ to swap.";body.append(sub);
+    const duo=document.createElement("div");duo.className="mg-duo";
+    const left=(a===gone)?card(a,false):card(a,true);
+    const swap=document.createElement("button");swap.className="mg-swap";swap.innerHTML="⇄";swap.title="Swap which meeting is kept";
+    swap.onclick=()=>{const t=keep;keep=gone;gone=t;draw();};
+    const right=(b===gone)?card(b,false):card(b,true);
+    duo.append(left,swap,right);body.append(duo);
+    const gs=seriesStats(gone);
+    const ul=document.createElement("ul");ul.className="mg-list";
+    const li=(html)=>{const l=document.createElement("li");l.innerHTML='<span class="ic">✓</span><span>'+html+'</span>';ul.append(l);};
+    const histBits=[];if(gs.agendas)histBits.push(gs.agendas+" past agenda"+(gs.agendas!==1?"s":""));if(gs.skips)histBits.push(gs.skips+" skip note"+(gs.skips!==1?"s":""));
+    if(histBits.length)li(histBits.join(" + ")+" join <b>"+esc(keep.name)+"</b>’s history, sorted by date.");
+    const liveBits=[];if(gs.topics)liveBits.push(gs.topics+" topic"+(gs.topics!==1?"s":""));if(gs.actions)liveBits.push(gs.actions+" action"+(gs.actions!==1?"s":""));if(gs.park)liveBits.push(gs.park+" parked item"+(gs.park!==1?"s":""));
+    if(liveBits.length)li(liveBits.join(", ")+" move to <b>"+esc(keep.name)+"</b>’s current agenda.");
+    li("Nothing is deleted — everything stays findable in History and Search.");
+    body.append(ul);
+    const foot=document.createElement("div");foot.className="nm-actions";
+    const cancel=document.createElement("button");cancel.className="nm-btn";cancel.textContent="Cancel";cancel.onclick=closeMerge;
+    const go=document.createElement("button");go.className="nm-btn primary";go.textContent="Merge into "+shorten(keep.name||"meeting");
+    go.onclick=()=>{mergeSeries(gone,keep);closeMerge();};
+    foot.append(cancel,go);body.append(foot);
+  }
+  draw();
+  document.getElementById("mgOverlay").classList.add("open");
+}
+function buildMergeTargets(s,m,backFn){
+  m.innerHTML="";
+  const back=document.createElement("button");back.innerHTML="‹ Merge into";back.style.color="var(--muted)";back.onclick=(e)=>{e.stopPropagation();(backFn||buildSMenuMain)(s,m);};
+  m.append(back);
+  const others=DB.series.filter(x=>x.id!==s.id);
+  if(!others.length){const e=document.createElement("button");e.disabled=true;e.style.color="var(--faint)";e.textContent="No other meetings";m.append(e);return;}
+  others.forEach(t=>{
+    const st=seriesStats(t);const cl=t.clientId?clientById(t.clientId):null;
+    const b=document.createElement("button");
+    b.innerHTML=esc(t.name||"Untitled meeting")+'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--faint);margin-top:1px">'+esc([cl?cl.name:(seriesCat(t)==="internal"?"Internal":"Client"),(st.agendas+st.skips)?(st.agendas+st.skips)+" in history":null,t.archived?"archived":null].filter(Boolean).join(" · "))+'</div>';
+    b.onclick=()=>{closeSMenu();openMergeDialog(s,t);};
+    m.append(b);
+  });
+}
+
 /* ---- skip an occurrence ---- */
 function canSkip(s){return !!(s&&s.recurring&&s.cadence&&s.cadence!=="none");}
 function skipOccurrence(s,newDate){
@@ -2228,6 +2339,7 @@ function buildSMenuMain(s,m){
   const cl=s.clientId?clientById(s.clientId):null;
   const bcl=document.createElement("button");bcl.innerHTML="Client: "+(cl?cl.name:"none")+" &nbsp;\u203a";bcl.onclick=(e)=>{e.stopPropagation();buildSMenuClient(s,m);};
   m.append(bcl);
+  if(DB.series.length>1){const bm=document.createElement("button");bm.innerHTML="Merge into\u2026 &nbsp;\u203a";bm.onclick=(e)=>{e.stopPropagation();buildMergeTargets(s,m,buildSMenuMain);};m.append(bm);}
   if(s.gcalId){
     const brl=document.createElement("button");brl.textContent="Re-link calendar event…";brl.onclick=()=>{closeSMenu();linkSeriesToCalendar(s);};
     const bul=document.createElement("button");bul.textContent="Unlink from calendar";bul.onclick=()=>{closeSMenu();s.gcalId=null;s.gcalLink=null;save();renderAll();};
@@ -2314,6 +2426,7 @@ document.getElementById("ceOverlay").onclick=(e)=>{if(e.target.id==="ceOverlay")
 document.getElementById("gcOverlay").onclick=(e)=>{if(e.target.id==="gcOverlay")closeReview();};
 document.getElementById("apOverlay").onclick=(e)=>{if(e.target.id==="apOverlay")closeActionPanel();};
 document.getElementById("skOverlay").onclick=(e)=>{if(e.target.id==="skOverlay")closeSkip();};
+document.getElementById("mgOverlay").onclick=(e)=>{if(e.target.id==="mgOverlay")closeMerge();};
 document.getElementById("agSkip").onclick=(e)=>{e.stopPropagation();const s=activeSeries();if(canSkip(s))openSkipDialog(s);};
 document.getElementById("stabGeneral").onclick=()=>setSettingsTab("general");
 document.getElementById("stabAppearance").onclick=()=>setSettingsTab("appearance");
@@ -2333,7 +2446,7 @@ document.getElementById("railActions").onclick=goActions;
 document.getElementById("searchInput").addEventListener("input",runGlobalSearch);
 document.getElementById("searchOverlay").onclick=(e)=>{if(e.target.id==="searchOverlay")closeSearch();};
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeSearch();closeActionPanel();closeSkip();}
+  if(e.key==="Escape"){closeSearch();closeActionPanel();closeSkip();closeMerge();}
   else if(e.key==="/"){const t=e.target;if(t&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable))return;if(document.querySelector(".nm-overlay.open"))return;e.preventDefault();openSearch();}
 });
 
@@ -2786,6 +2899,7 @@ function buildCardMenu(s,m){
   const bcl=document.createElement("button");bcl.innerHTML="Client: "+esc(cl?cl.name:"none")+" &nbsp;›";
   bcl.onclick=(e)=>{e.stopPropagation();buildSMenuClient(s,m,buildCardMenu);};
   m.append(bcl);
+  if(DB.series.length>1){const bm=document.createElement("button");bm.innerHTML="Merge into… &nbsp;›";bm.onclick=(e)=>{e.stopPropagation();buildMergeTargets(s,m,buildCardMenu);};m.append(bm);}
   const ba=document.createElement("button");ba.textContent="Archive meeting";ba.onclick=()=>{closeSMenu();archiveSeries(s);};
   const bd=document.createElement("button");bd.className="danger";bd.textContent="Delete meeting";bd.onclick=()=>{closeSMenu();deleteSeries(s);};
   m.append(ba,bd);
