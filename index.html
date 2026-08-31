@@ -725,6 +725,7 @@
   .gc-ev input{width:17px;height:17px;margin-top:2px;accent-color:var(--accent);cursor:pointer;flex:none}
   .gc-ev-nm{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.25}
   .gc-ev-meta{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);margin-top:4px}
+  .gc-ev-tag{font-family:"Archivo",sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);background:var(--paper);border:1px solid var(--hair-strong);border-radius:20px;padding:2px 8px;margin-left:8px;vertical-align:2px;white-space:nowrap}
   .gc-sk{display:flex;align-items:center;gap:12px;background:var(--card);border:0.5px solid var(--hair);border-radius:10px;padding:11px 13px;box-shadow:var(--shadow)}
   .gc-sk-mid{flex:1;min-width:0}
   .gc-sk-nm{font-size:15px;color:var(--ink)}
@@ -3528,55 +3529,72 @@ async function syncCalendar(btn){
   const orig=btn?btn.innerHTML:null;if(btn){btn.disabled=true;btn.innerHTML=GCAL_ICON+" Syncing…";}
   try{
     const evs=dedupeEvents(await gcalFetch());
-    let updated=0,filtered=0;const review=[];
+    let updated=0;const cands=[];
     evs.forEach(ev=>{
       const k=eventKey(ev);
       let s=DB.series.find(x=>x.gcalId===k);
       if(!s){const nm=(ev.summary||"").trim().toLowerCase();if(nm)s=DB.series.find(x=>!x.gcalId&&(x.name||"").trim().toLowerCase()===nm);}
       if(s){applyEventToSeries(s,ev);updated++;return;}
       const sk=(DB.gcalSkipped||[]).find(z=>z.key===k);
-      if(sk){Object.assign(sk,snapEvent(ev));return;}
-      if(DB.ui.gcal.requireAttendees&&!hasGuests(ev)){filtered++;return;}
-      review.push(ev);
+      if(sk){Object.assign(sk,snapEvent(ev));cands.push({ev:ev,kind:"skipped"});return;}
+      if(DB.ui.gcal.requireAttendees&&!hasGuests(ev)){cands.push({ev:ev,kind:"noguests"});return;}
+      cands.push({ev:ev,kind:"new"});
     });
     DB.ui.gcal.lastSyncAt=Date.now();DB.ui.gcal.connected=true;save();renderAll();
-    if(review.length)openReviewModal(review,updated,filtered);
-    else{
-      const bits=[];
-      if(updated)bits.push(updated+" meeting"+(updated!==1?"s":"")+" updated from your calendar");
-      if(filtered)bits.push(filtered+" event"+(filtered!==1?"s":"")+" without guests skipped");
-      alert((bits.length?bits.join(". ")+". ":"")+"No new events to review.");
-    }
+    if(cands.length)openReviewModal(cands,updated);
+    else alert((updated?updated+" meeting"+(updated!==1?"s":"")+" updated. ":"")+"Everything on your calendar for the next 30 days is already in the app.");
   }catch(e){alert("Calendar sync failed: "+((e&&e.message)||e));}
   finally{if(btn){btn.disabled=false;btn.innerHTML=orig;}}
 }
 
 /* ---- review modal (choose which new events to import) ---- */
 function closeReview(){const o=document.getElementById("gcOverlay");if(o)o.classList.remove("open");}
-function openReviewModal(review,updated,filtered){
-  const body=document.getElementById("gcBody");body.innerHTML="";
-  const h=document.createElement("div");h.className="nm-title";h.textContent="New calendar events";body.append(h);
-  const sub=document.createElement("div");sub.className="home-sub";sub.style.margin="0 0 8px";
-  sub.textContent=(updated?updated+" existing meeting"+(updated!==1?"s":"")+" updated. ":"")+review.length+" new event"+(review.length!==1?"s":"")+" in the next 30 days. Check the ones to add — unchecked ones go to “Not imported” in Settings."+(filtered?" ("+filtered+" without guests skipped.)":"");
-  body.append(sub);
-  const list=document.createElement("div");list.className="gc-ev-list";
-  const checks=[];
-  review.forEach(ev=>{
-    const p=parseGcalStart(ev),att=gcalAttendees(ev);
-    const row=document.createElement("label");row.className="gc-ev";
-    const cb=document.createElement("input");cb.type="checkbox";cb.checked=true;checks.push(cb);
-    const mid=document.createElement("div");mid.style.flex="1";mid.style.minWidth="0";
-    const nm=document.createElement("div");nm.className="gc-ev-nm";nm.textContent=(ev.summary||"Untitled meeting").trim();
-    const meta=document.createElement("div");meta.className="gc-ev-meta";
-    meta.textContent=[(p.date?fmtDateDisp(p.date):"No date"),(p.time?fmtTimeDisp(p.time):null),(att.length?att.length+" attendee"+(att.length!==1?"s":""):null)].filter(Boolean).join("  ·  ");
-    mid.append(nm,meta);row.append(cb,mid);list.append(row);
-  });
-  body.append(list);
-  const apply=()=>{review.forEach((ev,i)=>{if(checks[i].checked)importEvent(ev);else addSkipped(ev);});save();renderAll();closeReview();};
-  const foot=document.createElement("div");foot.className="nm-actions";
-  const skipAll=document.createElement("button");skipAll.className="nm-btn";skipAll.textContent="Skip all";skipAll.onclick=()=>{checks.forEach(c=>c.checked=false);apply();};
-  const applyBtn=document.createElement("button");applyBtn.className="nm-btn primary";applyBtn.textContent="Add checked";applyBtn.onclick=apply;
-  foot.append(skipAll,applyBtn);body.append(foot);
+function openReviewModal(cands,updated){
+  let showNoGuests=false;
+  const body=document.getElementById("gcBody");
+  function draw(){
+    body.innerHTML="";
+    const ng=cands.filter(c=>c.kind==="noguests");
+    const shown=cands.filter(c=>c.kind!=="noguests"||showNoGuests);
+    const h=document.createElement("div");h.className="nm-title";h.textContent="Add meetings from your calendar";body.append(h);
+    const sub=document.createElement("div");sub.className="home-sub";sub.style.margin="0 0 8px";
+    sub.textContent=(updated?updated+" existing meeting"+(updated!==1?"s":"")+" updated. ":"")+"Check what you want in the app — everything else stays out until you add it.";
+    body.append(sub);
+    const list=document.createElement("div");list.className="gc-ev-list";
+    shown.forEach(c=>{
+      const ev=c.ev,p=parseGcalStart(ev),att=gcalAttendees(ev);
+      const row=document.createElement("label");row.className="gc-ev";
+      const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!c.checked||(c.kind==="new"&&c.checked!==false);c.cb=cb;
+      cb.onchange=()=>{c.checked=cb.checked;};
+      const mid=document.createElement("div");mid.style.flex="1";mid.style.minWidth="0";
+      const nm=document.createElement("div");nm.className="gc-ev-nm";nm.textContent=(ev.summary||"Untitled meeting").trim();
+      if(c.kind!=="new"){const tg=document.createElement("span");tg.className="gc-ev-tag";tg.textContent=c.kind==="skipped"?"skipped earlier":"no guests";nm.append(tg);}
+      const meta=document.createElement("div");meta.className="gc-ev-meta";
+      meta.textContent=[(p.date?fmtDateDisp(p.date):"No date"),(p.time?fmtTimeDisp(p.time):null),(att.length?att.length+" attendee"+(att.length!==1?"s":""):null)].filter(Boolean).join("  ·  ");
+      mid.append(nm,meta);row.append(cb,mid);list.append(row);
+    });
+    if(!shown.length){const e=document.createElement("div");e.style.cssText="font-size:13px;color:var(--faint);font-style:italic;padding:14px 4px";e.textContent="Nothing here — everything with guests is already in the app.";list.append(e);}
+    body.append(list);
+    if(ng.length){
+      const tg=document.createElement("button");tg.className="ghost";tg.style.marginTop="10px";
+      tg.textContent=showNoGuests?("Hide events without guests"):("Show "+ng.length+" event"+(ng.length!==1?"s":"")+" without guests");
+      tg.onclick=()=>{showNoGuests=!showNoGuests;draw();};
+      body.append(tg);
+    }
+    const apply=()=>{
+      cands.forEach(c=>{
+        const on=!!(c.cb&&c.cb.checked)||(!c.cb&&!!c.checked);
+        if(on)importEvent(c.ev);
+        else if(c.kind==="new")addSkipped(c.ev);
+      });
+      save();renderAll();closeReview();
+    };
+    const foot=document.createElement("div");foot.className="nm-actions";
+    const close=document.createElement("button");close.className="nm-btn";close.textContent="Close";close.onclick=()=>{cands.forEach(c=>{if(c.kind==="new")addSkipped(c.ev);});save();renderAll();closeReview();};
+    const applyBtn=document.createElement("button");applyBtn.className="nm-btn primary";applyBtn.textContent="Add checked";applyBtn.onclick=apply;
+    foot.append(close,applyBtn);body.append(foot);
+  }
+  draw();
   document.getElementById("gcOverlay").classList.add("open");
 }
 
