@@ -2212,9 +2212,9 @@ function buildSMenuMain(s,m){
   const b4=document.createElement("button");b4.className="danger";b4.textContent="Delete meeting";b4.onclick=()=>{closeSMenu();deleteSeries(s);};
   m.append(ba,b4);
 }
-function buildSMenuClient(s,m){
+function buildSMenuClient(s,m,backFn){
   m.innerHTML="";
-  const back=document.createElement("button");back.innerHTML="\u2039 Client";back.style.color="var(--muted)";back.onclick=(e)=>{e.stopPropagation();buildSMenuMain(s,m);};
+  const back=document.createElement("button");back.innerHTML="\u2039 Client";back.style.color="var(--muted)";back.onclick=(e)=>{e.stopPropagation();(backFn||buildSMenuMain)(s,m);};
   m.append(back);
   const none=document.createElement("button");none.textContent=(!s.clientId?"\u2713 ":"")+"No client";none.onclick=()=>{s.clientId=null;save();closeSMenu();renderAll();};
   m.append(none);
@@ -2751,13 +2751,21 @@ function heroCard(s){
   c.onclick=()=>openMeeting(s.id);
   return c;
 }
-function openCardMenu(s,anchor){
-  closeSMenu();
-  const m=document.createElement("div");m.className="smenu";m.id="smenu";
+function buildCardMenu(s,m){
+  m.innerHTML="";
   if(canSkip(s)){const b=document.createElement("button");b.textContent="Skip this occurrence…";b.onclick=()=>{closeSMenu();openSkipDialog(s);};m.append(b);}
+  const cl=s.clientId?clientById(s.clientId):null;
+  const bcl=document.createElement("button");bcl.innerHTML="Client: "+esc(cl?cl.name:"none")+" &nbsp;›";
+  bcl.onclick=(e)=>{e.stopPropagation();buildSMenuClient(s,m,buildCardMenu);};
+  m.append(bcl);
   const ba=document.createElement("button");ba.textContent="Archive meeting";ba.onclick=()=>{closeSMenu();archiveSeries(s);};
   const bd=document.createElement("button");bd.className="danger";bd.textContent="Delete meeting";bd.onclick=()=>{closeSMenu();deleteSeries(s);};
   m.append(ba,bd);
+}
+function openCardMenu(s,anchor){
+  closeSMenu();
+  const m=document.createElement("div");m.className="smenu";m.id="smenu";
+  buildCardMenu(s,m);
   document.body.append(m);
   const r=anchor.getBoundingClientRect();
   m.style.top=(window.scrollY+r.bottom+4)+"px";
