@@ -1365,8 +1365,9 @@ function applyBrand(){
     r.setProperty("--accent-wash",mixWhite(c0,0.95));
     r.setProperty("--green-edge",mixWhite(c0,0.62));
     setHero(shade(c0,-0.55),shade(c0,-0.12),mixWhite(c0,0.45));
-    const hasC4=c.length>=4;document.body.classList.toggle("c4-actions",hasC4);
-    if(hasC4){r.setProperty("--c4",c[3]);r.setProperty("--c4-on",onColor(c[3]));r.setProperty("--c4-ink",inkFor(c[3]));}
+    const btnCol=c.length>=4?c[3]:(c.length===3?c[2]:null);
+    document.body.classList.toggle("c4-actions",!!btnCol);
+    if(btnCol){r.setProperty("--c4",btnCol);r.setProperty("--c4-on",onColor(btnCol));r.setProperty("--c4-ink",inkFor(btnCol));}
   }else{
     setAccentFamily(t.accent);document.body.classList.remove("c4-actions");
     const light=t.heroText!=="dark";const rr=document.documentElement.style;
@@ -3333,7 +3334,7 @@ function drawClientEditor(){
     prevWrap.innerHTML="";
     const cols=(c.colors||[]).filter(x=>/^#([0-9a-fA-F]{6})$/.test(x));
     if(!cols.length){const e=document.createElement("div");e.style.cssText="font-size:12px;color:var(--faint);font-style:italic;padding:4px 2px";e.textContent="Add a color to see the preview.";prevWrap.append(e);return;}
-    const n=cols.length,c0=cols[0],c1=cols[1%n],c2=cols[2%n],c4=cols.length>=4?cols[3]:null;
+    const n=cols.length,c0=cols[0],c1=cols[1%n],c2=cols[2%n],c4=cols.length>=4?cols[3]:(cols.length===3?cols[2]:null);
     const heroA=shade(c0,-0.55),heroB=shade(c0,-0.12),wash=mixWhite(c0,0.95),edge=mixWhite(c0,0.62);
     const primInk=c4?inkFor(c4):shade(c0,-0.28);
     const iconBg=c4||"rgba(255,255,255,.14)",iconCol=c4?onColor(c4):"#fff",iconBd=c4?"rgba(255,255,255,.32)":"rgba(255,255,255,.22)";
