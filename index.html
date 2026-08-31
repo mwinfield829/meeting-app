@@ -386,6 +386,9 @@
   .rich a,.snap-topic a,.snap-act a{color:var(--accent);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--accent) 40%,transparent);text-underline-offset:2px;cursor:pointer;font-weight:500}
   .rich a:after,.snap-topic a:after,.snap-act a:after{content:"\2197";font-size:.7em;vertical-align:super;opacity:.7;margin-left:1px}
   .rich b,.snap-topic b,.snap-act b{font-weight:700}
+  .fs-s{font-size:.82em}
+  .fs-l{font-size:1.3em}
+  .fmtbar .fb.sz{font-family:"Archivo",sans-serif;font-weight:700;font-size:12.5px}
   /* formatting toolbar (accent) */
   .fmtbar{position:fixed;z-index:90;display:none;align-items:center;background:var(--accent);border-radius:11px;padding:6px;box-shadow:0 12px 26px rgba(0,0,0,.3)}
   .fmtbar .fb-main{display:flex;align-items:center;gap:5px}
@@ -888,7 +891,7 @@
 
   <div class="card">
     <div class="sec-head"><span class="sec-title">Purpose</span></div>
-    <div class="purpose" contenteditable data-k="purpose" data-ph="The one reason this meeting exists. If you can't write it, cancel it."></div>
+    <div class="purpose" id="agPurpose" contenteditable data-ph="The one reason this meeting exists. If you can't write it, cancel it."></div>
   </div>
 
   <div class="card">
@@ -980,6 +983,10 @@
     <button class="fb b" id="fbB" data-cmd="bold" title="Bold">B</button>
     <button class="fb i" id="fbI" data-cmd="italic" title="Italic">I</button>
     <button class="fb s" id="fbS" data-cmd="strikeThrough" title="Strikethrough">S</button>
+    <span class="fb-div"></span>
+    <button class="fb sz" id="fbSzS" title="Small text">A&#8315;</button>
+    <button class="fb sz" id="fbSzN" title="Normal text">A</button>
+    <button class="fb sz" id="fbSzL" title="Large text">A&#8314;</button>
     <span class="fb-div"></span>
     <button class="fb lk" id="fbLink" title="Add link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg> Link</button>
   </div>
@@ -1090,6 +1097,8 @@ function bindField(el){const k=el.dataset.k;el.textContent=S[k]||"";el.addEventL
 
 function fillHeader(){
   document.querySelectorAll("[data-k]").forEach(el=>{el.textContent=S[el.dataset.k]||"";});
+  const pu=document.getElementById("agPurpose");
+  if(pu&&document.activeElement!==pu)pu.innerHTML=sanitizeRich(S.purpose||"");
   const dt=document.getElementById("agDateText"),dd=document.getElementById("agDate");
   if(dt)dt.textContent=S.date?fmtDateShort(S.date):"Set date";
   if(dd)dd.classList.toggle("placeholder",!S.date);
@@ -1719,6 +1728,12 @@ function sanitizeRich(html){
           if(!/^https?:\/\//i.test(href)){if(/^[\w-]+(\.[\w-]+)+/.test(href))href="https://"+href;else{out+=walk(ch);return;}}
           const inner=walk(ch);out+=inner?('<a href="'+escAttr(href)+'">'+inner+'</a>'):inner;
         }else if(tag){const inner=walk(ch);if(inner)out+="<"+tag+">"+inner+"</"+tag+">";}
+        else if(ch.tagName==="FONT"||ch.tagName==="SPAN"){
+          const inner=walk(ch);let cls=null;
+          if(ch.tagName==="FONT"){const sz=parseInt(ch.getAttribute("size"),10);if(sz&&sz<=2)cls="fs-s";else if(sz&&sz>=5)cls="fs-l";}
+          else{const cl=ch.classList;if(cl.contains("fs-s"))cls="fs-s";else if(cl.contains("fs-l"))cls="fs-l";}
+          out+=(cls&&inner)?('<span class="'+cls+'">'+inner+'</span>'):inner;
+        }
         else{out+=walk(ch);}
       }
     });
@@ -1794,9 +1809,16 @@ function applyLink(){
   if(tbEl)tbEl.dispatchEvent(new Event("input"));hideToolbar();
 }
 function removeLink(){const sel=window.getSelection();sel.removeAllRanges();sel.addRange(savedRange);try{document.execCommand("unlink");}catch(e){}if(tbEl)tbEl.dispatchEvent(new Event("input"));hideToolbar();}
+function applySize(v){
+  const map={s:"2",n:"3",l:"5"};
+  try{document.execCommand("fontSize",false,map[v]);}catch(e){}
+  if(tbEl)tbEl.dispatchEvent(new Event("input"));
+  updateFmtStates();
+}
 function initToolbar(){
   try{document.execCommand("styleWithCSS",false,false);}catch(e){}
   ["fbB","fbI","fbS"].forEach(id=>{const b=document.getElementById(id);b.addEventListener("mousedown",e=>e.preventDefault());b.addEventListener("click",()=>fmtCmd(b.dataset.cmd));});
+  [["fbSzS","s"],["fbSzN","n"],["fbSzL","l"]].forEach(pr=>{const b=document.getElementById(pr[0]);b.addEventListener("mousedown",e=>e.preventDefault());b.addEventListener("click",()=>applySize(pr[1]));});
   const lk=document.getElementById("fbLink");lk.addEventListener("mousedown",e=>e.preventDefault());lk.addEventListener("click",openLinkInput);
   const go=document.getElementById("fbGo");go.addEventListener("mousedown",e=>e.preventDefault());go.addEventListener("click",applyLink);
   const rm=document.getElementById("fbRemove");rm.addEventListener("mousedown",e=>e.preventDefault());rm.addEventListener("click",removeLink);
@@ -1811,7 +1833,7 @@ function buildSummary(ag){
   L.push(ag.title||"Untitled meeting");
   const m=[fmtDateDisp(ag.date),fmtTimeDisp(ag.time)].filter(Boolean).join(" \u00b7 ");if(m)L.push(m);
   if(ag.attendees&&ag.attendees.length)L.push("Attendees: "+ag.attendees.join(", "));
-  if(ag.purpose)L.push("\nPurpose: "+ag.purpose);
+  if(rtext(ag.purpose).trim())L.push("\nPurpose: "+richToMd(ag.purpose));
   L.push("\nTopics:");
   ag.topics.forEach(t=>{
     L.push("  \u25c6 "+(richToMd(t.title)||"(untitled)"));
@@ -1973,7 +1995,7 @@ function snapshotHTML(ag){
   const m=[fmtDateDisp(ag.date),fmtTimeDisp(ag.time)].filter(Boolean).map(esc).join(" \u00b7 ");
   if(m)h+='<div class="snap-meta">'+m+'</div>';
   if(ag.attendees&&ag.attendees.length)h+='<div class="snap-att">'+ag.attendees.map(esc).join(", ")+'</div>';
-  if((ag.purpose||"").trim())h+='<div class="snap-sec"><div class="snap-h">Purpose</div><div class="snap-purpose">'+esc(ag.purpose)+'</div></div>';
+  if(rtext(ag.purpose).trim())h+='<div class="snap-sec"><div class="snap-h">Purpose</div><div class="snap-purpose">'+richForSnap(ag.purpose)+'</div></div>';
   h+='<div class="snap-sec"><div class="snap-h">Topics</div>';
   ag.topics.forEach(t=>{
     h+='<div class="snap-topic">\u25c6 '+(richForSnap(t.title)||"(untitled)");
@@ -2034,7 +2056,7 @@ function searchAgendas(query,seriesList){
     const scan=(ag,when,entryId,isCur)=>{
       if(!ag)return;
       const add=(section,text)=>{const plain=(text||"").trim();if(plain&&plain.toLowerCase().includes(q))hits.push({section,snippet:plain,when,entryId,isCur});};
-      add("Title",ag.title);add("Purpose",ag.purpose);
+      add("Title",ag.title);add("Purpose",rtext(ag.purpose));
       (ag.topics||[]).forEach(t=>{add("Topic",rtext(t.title));(t.points||[]).forEach(p=>add("Sub-point",rtext(ptText(p))));});
       (ag.actions||[]).forEach(a=>{add("Action",rtext(a.t));});
       (ag.park||[]).forEach(p=>add("Parked",p));
@@ -3779,6 +3801,7 @@ view="home";
 applyView();
 advanceVerse();
 document.querySelectorAll("[data-k]").forEach(bindField);
+bindRich(document.getElementById("agPurpose"),()=>S.purpose||"",(html)=>{S.purpose=html;});
 bindDateTime();
 applyBranding();
 initToolbar();
