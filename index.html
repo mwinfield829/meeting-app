@@ -352,7 +352,10 @@
   .home-empty .he-h{font-family:"Newsreader",serif;font-size:19px;color:var(--ink);margin-bottom:6px}
   .home-empty .he-b{font-size:14px;margin-bottom:16px}
   .home-empty .home-new{margin:0 auto}
-  .smenu{position:absolute;z-index:100;background:#fff;border:1px solid var(--hair-strong);border-radius:10px;box-shadow:0 8px 28px rgba(22,24,29,.14);padding:5px;min-width:184px}
+  .smenu{position:absolute;z-index:100;background:#fff;border:1px solid var(--hair-strong);border-radius:10px;box-shadow:0 8px 28px rgba(22,24,29,.14);padding:5px;min-width:184px;max-height:min(420px,70vh);overflow:auto}
+  .smenu-search{display:block;width:100%;box-sizing:border-box;font-family:"Newsreader",serif;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--hair-strong);border-radius:7px;padding:7px 10px;outline:none;margin:2px 0 5px}
+  .smenu-search:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+  .smenu-none{font-family:"Archivo",sans-serif;font-size:11.5px;color:var(--faint);padding:8px 9px;font-style:italic}
   .smenu button{display:block;width:100%;text-align:left;font-family:"Newsreader",serif;font-size:15px;color:var(--ink-soft);background:none;border:0;border-radius:6px;padding:8px 10px;cursor:pointer}
   .smenu button:hover{background:var(--accent-soft);color:var(--accent-ink)}
   .smenu button.danger:hover{background:#fdecea;color:#c0392b}
@@ -1996,13 +1999,34 @@ function buildMergeTargets(s,m,backFn){
   m.append(back);
   const others=DB.series.filter(x=>x.id!==s.id);
   if(!others.length){const e=document.createElement("button");e.disabled=true;e.style.color="var(--faint)";e.textContent="No other meetings";m.append(e);return;}
-  others.forEach(t=>{
-    const st=seriesStats(t);const cl=t.clientId?clientById(t.clientId):null;
-    const b=document.createElement("button");
-    b.innerHTML=esc(t.name||"Untitled meeting")+'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--faint);margin-top:1px">'+esc([cl?cl.name:(seriesCat(t)==="internal"?"Internal":"Client"),(st.agendas+st.skips)?(st.agendas+st.skips)+" in history":null,t.archived?"archived":null].filter(Boolean).join(" · "))+'</div>';
-    b.onclick=()=>{closeSMenu();openMergeDialog(s,t);};
-    m.append(b);
+  const inp=document.createElement("input");inp.className="smenu-search";inp.placeholder="Search meetings…";inp.spellcheck=false;
+  inp.onclick=(e)=>e.stopPropagation();
+  m.append(inp);
+  const list=document.createElement("div");m.append(list);
+  function draw(){
+    list.innerHTML="";
+    const q=inp.value.trim().toLowerCase();
+    const hits=others.filter(t=>{
+      if(!q)return true;
+      const cl=t.clientId?clientById(t.clientId):null;
+      return (t.name||"").toLowerCase().includes(q)||(cl&&(cl.name||"").toLowerCase().includes(q));
+    });
+    if(!hits.length){const e=document.createElement("div");e.className="smenu-none";e.textContent="No meetings match";list.append(e);return;}
+    hits.forEach(t=>{
+      const st=seriesStats(t);const cl=t.clientId?clientById(t.clientId):null;
+      const b=document.createElement("button");
+      b.innerHTML=esc(t.name||"Untitled meeting")+'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--faint);margin-top:1px">'+esc([cl?cl.name:(seriesCat(t)==="internal"?"Internal":"Client"),(st.agendas+st.skips)?(st.agendas+st.skips)+" in history":null,t.archived?"archived":null].filter(Boolean).join(" · "))+'</div>';
+      b.onclick=()=>{closeSMenu();openMergeDialog(s,t);};
+      list.append(b);
+    });
+  }
+  inp.addEventListener("input",draw);
+  inp.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){e.preventDefault();const first=list.querySelector("button");if(first)first.click();}
+    if(e.key!=="Escape")e.stopPropagation();
   });
+  draw();
+  setTimeout(()=>inp.focus(),0);
 }
 
 /* ---- skip an occurrence ---- */
