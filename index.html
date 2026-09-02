@@ -1891,31 +1891,34 @@ function updateHistBtn(){
 }
 function hasContent(){return (S.title||"").trim()||S.topics.some(t=>(t.title||"").trim()||t.points.some(p=>ptText(p).trim()))||S.actions.some(a=>a.t.trim())||(S.purpose||"").trim();}
 
-function archiveWeek(){
-  if(!hasContent()){alert("Nothing to archive yet \u2014 add a title or some topics first.");return;}
-  const sr=activeSeries();
-  const nd=sr.recurring?nextDate(S.date,sr.cadence,sr.cadenceDays):"";
+function archiveWeek(sr){
+  sr=sr||activeSeries();
+  const ag=sr.cur,isActive=(sr===activeSeries());
+  const hc=(ag.title||"").trim()||ag.topics.some(t=>(t.title||"").trim()||t.points.some(p=>ptText(p).trim()))||ag.actions.some(a=>a.t.trim())||(ag.purpose||"").trim();
+  if(!hc){alert("Nothing to archive yet \u2014 add a title or some topics first.");return;}
+  const nd=sr.recurring?nextDate(ag.date,sr.cadence,sr.cadenceDays):"";
   const when=nd?(" The next meeting will be dated "+fmtDateDisp(nd)+"."):"";
   if(!confirm("Save this agenda to History and start the next meeting?"+when+"\n\nCarried forward: standing topics (heading + pinned sub-points), pushed topics (with sub-points), open actions, and parked items.\nReset: everything else, and completed actions (kept in the archived copy)."))return;
-  const snap=JSON.parse(JSON.stringify(S));
-  LOG.unshift({id:uid(),at:Date.now(),label:(S.title||"Untitled meeting").trim(),date:fmtDateDisp(S.date),snap:snap});
+  const snap=JSON.parse(JSON.stringify(ag));
+  sr.log=sr.log||[];
+  sr.log.unshift({id:uid(),at:Date.now(),label:((ag.title||sr.name)||"Untitled meeting").trim(),date:fmtDateDisp(ag.date),snap:snap});
   const carriedTopics=[];
-  S.topics.forEach(tp=>{
+  ag.topics.forEach(tp=>{
     if(tp.pushed)carriedTopics.push({id:uid(),title:tp.title,points:tp.points.map(p=>({t:ptText(p),lvl:ptLvl(p),keep:ptKeep(p)})),standing:!!tp.standing,pushed:false});
     else if(tp.standing)carriedTopics.push({id:uid(),title:tp.title,points:tp.points.filter(ptKeep).map(p=>({t:ptText(p),lvl:ptLvl(p),keep:true})),standing:true,pushed:false});
   });
   if(!carriedTopics.length)carriedTopics.push({id:uid(),title:"",points:[]});
-  const carriedActions=S.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",clientId:a.clientId||null}));
-  const carriedPark=S.park.filter(p=>p.trim());
+  const carriedActions=ag.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",clientId:a.clientId||null}));
+  const carriedPark=ag.park.filter(p=>p.trim());
   const next=BLANK();
-  next.title=S.title;next.attendees=S.attendees.slice();next.time=S.time;next.date=nd;
+  next.title=ag.title;next.attendees=ag.attendees.slice();next.time=ag.time;next.date=nd;
   next.topics=carriedTopics;next.actions=carriedActions;next.park=carriedPark;
-  setCurrent(next);
+  sr.cur=next;
+  if(isActive){S=next;fillHeader();}
   save();
-  fillHeader();
   renderAll();
 }
-document.getElementById("weekBtn").onclick=archiveWeek;
+document.getElementById("weekBtn").onclick=()=>archiveWeek();
 document.getElementById("printBtn").onclick=()=>printSnapshot(S);
 
 /* ---- merge two meetings ---- */
@@ -2918,6 +2921,7 @@ function heroCard(s){
 }
 function buildCardMenu(s,m){
   m.innerHTML="";
+  const bs=document.createElement("button");bs.textContent="Save & start next…";bs.onclick=()=>{closeSMenu();archiveWeek(s);};m.append(bs);
   if(canSkip(s)){const b=document.createElement("button");b.textContent="Skip this occurrence…";b.onclick=()=>{closeSMenu();openSkipDialog(s);};m.append(b);}
   const cl=s.clientId?clientById(s.clientId):null;
   const bcl=document.createElement("button");bcl.innerHTML="Client: "+esc(cl?cl.name:"none")+" &nbsp;›";
