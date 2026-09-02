@@ -987,6 +987,10 @@
   <div class="nm-modal" role="dialog" aria-label="Merge meetings" id="mgBody" style="width:min(460px,100%)"></div>
 </div>
 
+<div class="nm-overlay" id="svOverlay">
+  <div class="nm-modal" role="dialog" aria-label="Save and start next" id="svBody" style="width:min(430px,100%)"></div>
+</div>
+
 <div class="nm-overlay" id="skOverlay">
   <div class="nm-modal" role="dialog" aria-label="Skip occurrence" id="skBody" style="width:min(420px,100%)"></div>
 </div>
@@ -1891,14 +1895,38 @@ function updateHistBtn(){
 }
 function hasContent(){return (S.title||"").trim()||S.topics.some(t=>(t.title||"").trim()||t.points.some(p=>ptText(p).trim()))||S.actions.some(a=>a.t.trim())||(S.purpose||"").trim();}
 
+function closeSaveNext(){const o=document.getElementById("svOverlay");if(o)o.classList.remove("open");}
 function archiveWeek(sr){
   sr=sr||activeSeries();
-  const ag=sr.cur,isActive=(sr===activeSeries());
+  const ag=sr.cur;
   const hc=(ag.title||"").trim()||ag.topics.some(t=>(t.title||"").trim()||t.points.some(p=>ptText(p).trim()))||ag.actions.some(a=>a.t.trim())||(ag.purpose||"").trim();
   if(!hc){alert("Nothing to archive yet \u2014 add a title or some topics first.");return;}
-  const nd=sr.recurring?nextDate(ag.date,sr.cadence,sr.cadenceDays):"";
-  const when=nd?(" The next meeting will be dated "+fmtDateDisp(nd)+"."):"";
-  if(!confirm("Save this agenda to History and start the next meeting?"+when+"\n\nCarried forward: standing topics (heading + pinned sub-points), pushed topics (with sub-points), open actions, and parked items.\nReset: everything else, and completed actions (kept in the archived copy)."))return;
+  let next=sr.recurring?(nextDate(ag.date,sr.cadence,sr.cadenceDays)||""):"";
+  const body=document.getElementById("svBody");
+  function draw(){
+    body.innerHTML="";
+    const h=document.createElement("div");h.className="nm-title";h.textContent="Save & start the next meeting?";body.append(h);
+    const p=document.createElement("div");p.style.cssText="font-size:13.5px;color:var(--ink-soft);line-height:1.55";
+    p.innerHTML="<b>"+esc(((ag.title||sr.name)||"Untitled meeting").trim())+"</b>"+(ag.date?(" ("+esc(fmtDateDisp(ag.date))+")"):"")+" is saved to History.<br><br>Carried forward: standing topics (heading + pinned sub-points), pushed topics (with sub-points), open actions, and parked items.<br>Reset: everything else \u2014 completed actions are kept in the archived copy.";
+    body.append(p);
+    const row=document.createElement("div");row.className="sk-row";
+    const k=document.createElement("span");k.className="k";k.textContent="Next meeting";
+    const b=document.createElement("button");b.className="dt-input"+(next?"":" placeholder");
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> <span>'+(next?esc(fmtDateShort(next)):"No date yet")+'</span>';
+    b.onclick=(e)=>{e.stopPropagation();openDatePicker(b,()=>next,(v)=>{next=v;draw();});};
+    row.append(k,b);body.append(row);
+    const foot=document.createElement("div");foot.className="nm-actions";
+    const cancel=document.createElement("button");cancel.className="nm-btn";cancel.textContent="Cancel";cancel.onclick=closeSaveNext;
+    const go=document.createElement("button");go.className="nm-btn primary";
+    go.textContent=next?("Save \u00b7 next "+fmtDateShort(next)):"Save & start next";
+    go.onclick=()=>{doArchiveWeek(sr,next);closeSaveNext();};
+    foot.append(cancel,go);body.append(foot);
+  }
+  draw();
+  document.getElementById("svOverlay").classList.add("open");
+}
+function doArchiveWeek(sr,nd){
+  const ag=sr.cur,isActive=(sr===activeSeries());
   const snap=JSON.parse(JSON.stringify(ag));
   sr.log=sr.log||[];
   sr.log.unshift({id:uid(),at:Date.now(),label:((ag.title||sr.name)||"Untitled meeting").trim(),date:fmtDateDisp(ag.date),snap:snap});
@@ -1911,7 +1939,7 @@ function archiveWeek(sr){
   const carriedActions=ag.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",clientId:a.clientId||null}));
   const carriedPark=ag.park.filter(p=>p.trim());
   const next=BLANK();
-  next.title=ag.title;next.attendees=ag.attendees.slice();next.time=ag.time;next.date=nd;
+  next.title=ag.title;next.attendees=ag.attendees.slice();next.time=ag.time;next.date=nd||"";
   next.topics=carriedTopics;next.actions=carriedActions;next.park=carriedPark;
   sr.cur=next;
   if(isActive){S=next;fillHeader();}
@@ -2453,6 +2481,7 @@ document.getElementById("ceOverlay").onclick=(e)=>{if(e.target.id==="ceOverlay")
 document.getElementById("gcOverlay").onclick=(e)=>{if(e.target.id==="gcOverlay")closeReview();};
 document.getElementById("apOverlay").onclick=(e)=>{if(e.target.id==="apOverlay")closeActionPanel();};
 document.getElementById("skOverlay").onclick=(e)=>{if(e.target.id==="skOverlay")closeSkip();};
+document.getElementById("svOverlay").onclick=(e)=>{if(e.target.id==="svOverlay")closeSaveNext();};
 document.getElementById("mgOverlay").onclick=(e)=>{if(e.target.id==="mgOverlay")closeMerge();};
 document.getElementById("agSkip").onclick=(e)=>{e.stopPropagation();const s=activeSeries();if(canSkip(s))openSkipDialog(s);};
 document.getElementById("stabGeneral").onclick=()=>setSettingsTab("general");
@@ -2473,7 +2502,7 @@ document.getElementById("railActions").onclick=goActions;
 document.getElementById("searchInput").addEventListener("input",runGlobalSearch);
 document.getElementById("searchOverlay").onclick=(e)=>{if(e.target.id==="searchOverlay")closeSearch();};
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeSearch();closeActionPanel();closeSkip();closeMerge();}
+  if(e.key==="Escape"){closeSearch();closeActionPanel();closeSkip();closeMerge();closeSaveNext();}
   else if(e.key==="/"){const t=e.target;if(t&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable))return;if(document.querySelector(".nm-overlay.open"))return;e.preventDefault();openSearch();}
 });
 
