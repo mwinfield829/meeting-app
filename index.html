@@ -2425,7 +2425,7 @@ function archiveSeries(s){
   if(DB.activeId===s.id&&view==="agenda"){view="home";applyView();}
   renderAll();
 }
-function unarchiveSeries(s){s.archived=false;save();renderAll();}
+function unarchiveSeries(s){s.archived=false;s.noAutoArchive=true;save();renderAll();}
 function buildSMenuCadence(s,m){
   m.innerHTML="";
   const back=document.createElement("button");back.innerHTML="\u2039 Repeats";back.style.color="var(--muted)";back.onclick=(e)=>{e.stopPropagation();buildSMenuMain(s,m);};
@@ -2974,7 +2974,18 @@ function openCardMenu(s,anchor){
   m.style.left=(window.scrollX+Math.min(r.left,window.innerWidth-m.offsetWidth-8))+"px";
   setTimeout(()=>{document.addEventListener("click",sOutside);document.addEventListener("keydown",sEsc);},0);
 }
+function autoArchivePastOneOffs(){
+  const today=toISO(new Date());
+  let n=0;
+  DB.series.forEach(s=>{
+    if(s.noAutoArchive&&s.cur&&s.cur.date&&s.cur.date>=today){delete s.noAutoArchive;n++;}
+    if(!s.archived&&!s.recurring&&!s.noAutoArchive&&s.cur&&s.cur.date&&s.cur.date<today){s.archived=true;n++;}
+  });
+  if(n)save();
+  return n;
+}
 function renderHome(){
+  autoArchivePastOneOffs();
   const w=document.getElementById("homeView");if(!w)return;w.innerHTML="";
   const banner=renderBackupBanner();if(banner)w.append(banner);
   const archivedCount=DB.series.filter(s=>s.archived).length;
@@ -4010,6 +4021,7 @@ initToolbar();
 renderAll();
 try{restoreBackupHandle();}catch(e){}
 try{restoreGcalToken();if(gcalReady())renderHome();}catch(e){}
+try{if(autoArchivePastOneOffs())renderAll();}catch(e){}
 </script>
 </body>
 </html>
