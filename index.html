@@ -84,6 +84,9 @@
   .rail-open:hover{border-color:var(--accent);color:var(--accent)}
   body.rail-collapsed .rail{display:none}
   body.rail-collapsed .rail-open{display:inline-flex}
+  /* when the centered content column leaves no side gutter for the floating button, drop the content below it */
+  @media(max-width:1360px){body.rail-collapsed #main{padding-top:64px}}
+  @media(max-width:1600px){body.rail-collapsed.home-mode #main{padding-top:64px}}
   .rail-home{display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border-radius:8px;font-family:"Newsreader",serif;font-size:15px;color:var(--ink);margin-bottom:4px}
   .rail-home:hover{background:var(--paper)}
   .rail-home.active{background:var(--accent-soft);color:var(--accent-ink);box-shadow:inset 3px 0 0 var(--accent);border-radius:0 8px 8px 0}
