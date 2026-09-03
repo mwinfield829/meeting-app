@@ -501,6 +501,13 @@
   .mg-pick.keep .mg-hint{color:var(--accent-ink)}
   .mg-swap{align-self:center;width:30px;height:30px;border-radius:50%;background:var(--card);border:1px solid var(--hair-strong);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;padding:0}
   .mg-swap:hover{border-color:var(--accent)}
+  .mg-qk{font-family:"Archivo",sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:14px 0 7px}
+  .mg-opt{display:flex;gap:10px;width:100%;box-sizing:border-box;text-align:left;background:var(--card);border:1px solid var(--hair);border-radius:10px;padding:10px 12px;cursor:pointer;margin-bottom:7px;font-family:"Archivo",sans-serif}
+  .mg-opt.on{border:2px solid var(--accent);background:var(--accent-wash);padding:9px 11px}
+  .mg-radio{width:15px;height:15px;border-radius:50%;border:2px solid var(--hair-strong);flex:none;margin-top:1px;box-sizing:border-box;background:#fff}
+  .mg-opt.on .mg-radio{border:5px solid var(--accent)}
+  .mg-ot{display:block;font-size:12.5px;font-weight:600;color:var(--ink)}
+  .mg-od{display:block;font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:2px;font-weight:400}
   .mg-list{margin:14px 0 0;padding:0;list-style:none}
   .mg-list li{display:flex;gap:8px;font-size:12px;color:var(--ink-soft);line-height:1.5;padding:2px 0;font-family:"Archivo",sans-serif}
   .mg-list .ic{color:var(--accent);flex:none;font-weight:700}
@@ -1939,7 +1946,7 @@ function doArchiveWeek(sr,nd){
     else if(tp.standing)carriedTopics.push({id:uid(),title:tp.title,points:tp.points.filter(ptKeep).map(p=>({t:ptText(p),lvl:ptLvl(p),keep:true})),standing:true,pushed:false});
   });
   if(!carriedTopics.length)carriedTopics.push({id:uid(),title:"",points:[]});
-  const carriedActions=ag.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",clientId:a.clientId||null}));
+  const carriedActions=ag.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",clientId:a.clientId||null,notes:a.notes||"",shots:(a.shots||[]).slice()}));
   const carriedPark=ag.park.filter(p=>p.trim());
   const next=BLANK();
   next.title=ag.title;next.attendees=ag.attendees.slice();next.time=ag.time;next.date=nd||"";
@@ -1959,18 +1966,38 @@ function seriesStats(s){
   const cur=s.cur||{};
   const topics=(cur.topics||[]).filter(t=>(rtext(t.title)||"").trim()||(t.points||[]).some(p=>ptText(p).trim())).length;
   const acts=(cur.actions||[]).filter(a=>(a.t||"").trim()).length;
+  const openActs=(cur.actions||[]).filter(a=>!a.done&&(a.t||"").trim()).length;
   const park=(cur.park||[]).filter(p=>(p||"").trim()).length;
-  return {agendas:ag,skips:sk,topics:topics,actions:acts,park:park};
+  return {agendas:ag,skips:sk,topics:topics,actions:acts,openActions:openActs,park:park};
 }
-function mergeSeries(gone,keep){
-  // history: combine and keep newest-first
-  keep.log=(keep.log||[]).concat(gone.log||[]).sort((a,b)=>(b.at||0)-(a.at||0));
-  // live work moves into the keeper's current agenda
+function curHasContent(ag){
+  // deliberately ignores the title: cur.title mirrors the meeting name on every imported meeting
+  return !!(ag&&(
+    (ag.topics||[]).some(t=>(rtext(t.title)||"").trim()||(t.points||[]).some(p=>ptText(p).trim()))||
+    (ag.actions||[]).some(a=>(a.t||"").trim())||
+    (ag.park||[]).some(p=>(p||"").trim())||
+    rtext(ag.purpose||"").trim()
+  ));
+}
+function mergeSeries(gone,keep,mode){ // mode: "file" (freeze cur as a history entry) | "fold" (append cur into keeper's agenda)
+  keep.log=keep.log||[];gone.log=gone.log||[];
   const gc=gone.cur||{},kc=keep.cur;
-  (gc.topics||[]).forEach(t=>{if((rtext(t.title)||"").trim()||(t.points||[]).some(p=>ptText(p).trim()))kc.topics.push(t);});
-  (gc.actions||[]).forEach(a=>{if((a.t||"").trim())kc.actions.push(a);});
-  (gc.park||[]).forEach(p=>{if((p||"").trim())kc.park.push(p);});
-  (gc.attendees||[]).forEach(at=>{if(at&&kc.attendees.indexOf(at)<0)kc.attendees.push(at);});
+  const hasCur=curHasContent(gc);
+  if(hasCur&&mode==="fold"){
+    (gc.topics||[]).forEach(t=>{if((rtext(t.title)||"").trim()||(t.points||[]).some(p=>ptText(p).trim()))kc.topics.push(t);});
+    (gc.actions||[]).forEach(a=>{if((a.t||"").trim())kc.actions.push(a);});
+    (gc.park||[]).forEach(p=>{if((p||"").trim())kc.park.push(p);});
+    (gc.attendees||[]).forEach(at=>{if(at&&kc.attendees.indexOf(at)<0)kc.attendees.push(at);});
+  }else if(hasCur){
+    // file it as a past meeting: snapshot the whole agenda into the keeper's history,
+    // timestamped by its meeting date so it interleaves correctly, then rescue open actions as live copies
+    let at=Date.now();
+    if(gc.date){const d=parseISO(gc.date);if(d)at=d.getTime()+12*3600*1000;}
+    keep.log.push({id:uid(),at:at,label:((gc.title||gone.name)||"Untitled meeting").trim(),date:gc.date?fmtDateDisp(gc.date):"",snap:JSON.parse(JSON.stringify(gc))});
+    (gc.actions||[]).forEach(a=>{if(!a.done&&(a.t||"").trim())kc.actions.push({id:uid(),t:a.t,owner:a.owner||"",done:false,due:a.due||"",clientId:a.clientId||null,notes:a.notes||"",shots:(a.shots||[]).slice()});});
+  }
+  // history: combine and keep newest-first
+  keep.log=keep.log.concat(gone.log).sort((a,b)=>(b.at||0)-(a.at||0));
   // calendar link: keeper's wins; adopt the goner's only if the keeper has none.
   if(!keep.gcalId&&gone.gcalId){keep.gcalId=gone.gcalId;keep.gcalLink=gone.gcalLink||null;}
   else if(gone.gcalId&&gone.gcalId!==keep.gcalId){
@@ -1985,6 +2012,7 @@ function mergeSeries(gone,keep){
 function closeMerge(){const o=document.getElementById("mgOverlay");if(o)o.classList.remove("open");}
 function openMergeDialog(a,b){
   let keep=b,gone=a; // seeded: the meeting you clicked goes away, the target is kept
+  let mode="file";   // default: file the goner's current agenda as a past meeting
   const body=document.getElementById("mgBody");
   function card(s,isKeep){
     const st=seriesStats(s);
@@ -2010,18 +2038,41 @@ function openMergeDialog(a,b){
     const right=(b===gone)?card(b,false):card(b,true);
     duo.append(left,swap,right);body.append(duo);
     const gs=seriesStats(gone);
+    const hasCur=curHasContent(gone.cur);
+    if(hasCur){
+      const gc=gone.cur;
+      const bits=[];if(gs.topics)bits.push(gs.topics+" topic"+(gs.topics!==1?"s":""));if(gs.openActions)bits.push(gs.openActions+" open action"+(gs.openActions!==1?"s":""));if(gs.park)bits.push(gs.park+" parked");
+      const qk=document.createElement("div");qk.className="mg-qk";
+      qk.textContent="Its current agenda ("+[(gc.date?fmtDateShort(gc.date):"undated")].concat(bits.length?[bits.join(", ")]:[]).join(" · ")+")";
+      body.append(qk);
+      const opt=(m,title,desc)=>{
+        const o=document.createElement("button");o.type="button";o.className="mg-opt"+(mode===m?" on":"");
+        o.innerHTML='<span class="mg-radio"></span><span><span class="mg-ot">'+title+'</span><span class="mg-od">'+desc+'</span></span>';
+        o.onclick=()=>{mode=m;draw();};
+        return o;
+      };
+      body.append(
+        opt("file","File it as a past meeting","Saved into <b>"+esc(keep.name)+"</b>’s History as its own entry"+(gc.date?", dated "+esc(fmtDateShort(gc.date)):"")+" — exactly as it was."+(gs.openActions?" Open actions move to <b>"+esc(keep.name)+"</b>’s agenda so they stay live.":"")),
+        opt("fold","Fold it into the next agenda","Its topics, actions and parked items are added to <b>"+esc(keep.name)+"</b>’s current agenda, to be discussed at the next meeting.")
+      );
+    }
     const ul=document.createElement("ul");ul.className="mg-list";
     const li=(html)=>{const l=document.createElement("li");l.innerHTML='<span class="ic">✓</span><span>'+html+'</span>';ul.append(l);};
     const histBits=[];if(gs.agendas)histBits.push(gs.agendas+" past agenda"+(gs.agendas!==1?"s":""));if(gs.skips)histBits.push(gs.skips+" skip note"+(gs.skips!==1?"s":""));
-    if(histBits.length)li(histBits.join(" + ")+" join <b>"+esc(keep.name)+"</b>’s history, sorted by date.");
-    const liveBits=[];if(gs.topics)liveBits.push(gs.topics+" topic"+(gs.topics!==1?"s":""));if(gs.actions)liveBits.push(gs.actions+" action"+(gs.actions!==1?"s":""));if(gs.park)liveBits.push(gs.park+" parked item"+(gs.park!==1?"s":""));
-    if(liveBits.length)li(liveBits.join(", ")+" move to <b>"+esc(keep.name)+"</b>’s current agenda.");
+    if(histBits.length)li(histBits.join(" + ")+((gs.agendas+gs.skips)===1?" joins":" join")+" <b>"+esc(keep.name)+"</b>’s history, sorted by date.");
+    if(hasCur&&mode==="file"){
+      li("<b>“"+esc(((gone.cur.title||gone.name)||"Untitled meeting").trim())+(gone.cur.date?" · "+esc(fmtDateShort(gone.cur.date)):"")+"”</b> is added to History as its own entry.");
+      li(gs.openActions?(gs.openActions+" open action"+(gs.openActions!==1?"s move":" moves")+" to <b>"+esc(keep.name)+"</b>’s agenda; its topics are untouched."):("<b>"+esc(keep.name)+"</b>’s current agenda is untouched."));
+    }else if(hasCur){
+      const liveBits=[];if(gs.topics)liveBits.push(gs.topics+" topic"+(gs.topics!==1?"s":""));if(gs.actions)liveBits.push(gs.actions+" action"+(gs.actions!==1?"s":""));if(gs.park)liveBits.push(gs.park+" parked item"+(gs.park!==1?"s":""));
+      if(liveBits.length)li(liveBits.join(", ")+" move to <b>"+esc(keep.name)+"</b>’s current agenda.");
+    }
     li("Nothing is deleted — everything stays findable in History and Search.");
     body.append(ul);
     const foot=document.createElement("div");foot.className="nm-actions";
     const cancel=document.createElement("button");cancel.className="nm-btn";cancel.textContent="Cancel";cancel.onclick=closeMerge;
     const go=document.createElement("button");go.className="nm-btn primary";go.textContent="Merge into "+shorten(keep.name||"meeting");
-    go.onclick=()=>{mergeSeries(gone,keep);closeMerge();};
+    go.onclick=()=>{mergeSeries(gone,keep,mode);closeMerge();};
     foot.append(cancel,go);body.append(foot);
   }
   draw();
