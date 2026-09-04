@@ -4074,8 +4074,8 @@ function actionRowEl(r){
   };
   const nb=noteBtn(r.action,()=>openActionPanel(r.action,{series:r.series,archived:r.archived,entryId:r.entryId,rerender:renderActionsPage,onDelete:r.archived?null:del}));
   row.append(cb,tx,nb,tag,due);
-  if(r.standalone){
-    const x=document.createElement("button");x.className="rm";x.textContent="×";x.title="Delete action";
+  if(!r.archived){
+    const x=document.createElement("button");x.className="rm";x.textContent="×";x.title=r.standalone?"Delete action":"Delete action (removes it from its meeting's agenda)";
     x.onclick=(e)=>{e.stopPropagation();del();};
     row.append(x);
   }else{const sp=document.createElement("span");row.append(sp);}
