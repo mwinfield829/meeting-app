@@ -511,6 +511,16 @@
   .mg-list{margin:14px 0 0;padding:0;list-style:none}
   .mg-list li{display:flex;gap:8px;font-size:12px;color:var(--ink-soft);line-height:1.5;padding:2px 0;font-family:"Archivo",sans-serif}
   .mg-list .ic{color:var(--accent);flex:none;font-weight:700}
+  .toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,16px);opacity:0;pointer-events:none;z-index:300;display:flex;align-items:center;gap:14px;background:#16181D;color:#fff;border-radius:10px;padding:10px 12px 10px 16px;box-shadow:0 10px 30px rgba(22,24,29,.3);font-family:"Archivo",sans-serif;font-size:12.5px;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;transition:opacity .18s,transform .18s}
+  .toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  .toast b{font-weight:600}
+  .toast .t-act{background:#fff;color:#16181D;border:0;border-radius:7px;padding:5px 12px;font-family:"Archivo",sans-serif;font-weight:700;font-size:12px;cursor:pointer}
+  .toast .t-act:hover{background:#E2F3F5}
+  .toast .t-x{background:none;border:0;color:#9AA0AD;font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
+  .toast .t-x:hover{color:#fff}
+  .toast .t-bar{position:absolute;left:0;bottom:0;height:2px;width:100%;background:#34D0DE;transform-origin:left;transition:transform linear}
+  .he-restore{display:inline-flex;align-items:center;gap:5px;font-family:"Archivo",sans-serif;font-size:10.5px;font-weight:700;color:#fff;background:#BA7517;border:0;border-radius:12px;padding:4px 10px;cursor:pointer;margin-left:auto}
+  .he-restore:hover{background:#D48A1F}
   .sk-row{display:flex;align-items:center;gap:10px;margin-top:14px}
   .sk-row .k{font-family:"Archivo",sans-serif;font-weight:600;font-size:11.5px;color:var(--muted);flex:none}
   .cl-more{cursor:pointer}
@@ -730,7 +740,7 @@
   #printView{display:none}
   @media print{
     body{background:#fff;padding:0;font-size:12pt}
-    .agenda-actions,.hist-link,.dt-pop,.boxtools,.ghost,.addtopic,.chip .x,.rm,.tb-del,.chip-add,.sec-hint,.atag.empty-tag,.hist-overlay,.hist-drawer,.rail,.rail-open,.smenu{display:none!important}
+    .agenda-actions,.hist-link,.dt-pop,.boxtools,.ghost,.addtopic,.chip .x,.rm,.tb-del,.chip-add,.sec-hint,.atag.empty-tag,.hist-overlay,.hist-drawer,.rail,.rail-open,.smenu,.toast{display:none!important}
     #main{padding:0}
     .card{box-shadow:none;border-color:#ccc;break-inside:avoid}
     .topicbox{break-inside:avoid}
@@ -996,6 +1006,8 @@
 <div class="nm-overlay" id="mgOverlay">
   <div class="nm-modal" role="dialog" aria-label="Merge meetings" id="mgBody" style="width:min(460px,100%)"></div>
 </div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="nm-overlay" id="svOverlay">
   <div class="nm-modal" role="dialog" aria-label="Save and start next" id="svBody" style="width:min(430px,100%)"></div>
@@ -2119,11 +2131,50 @@ function canSkip(s){return !!(s&&s.recurring&&s.cadence&&s.cadence!=="none");}
 function skipOccurrence(s,newDate){
   const was=(s.cur&&s.cur.date)||"";
   s.log=s.log||[];
-  s.log.unshift({id:uid(),at:Date.now(),label:((s.cur&&s.cur.title)||s.name||"Untitled meeting").trim(),date:was?fmtDateDisp(was):"",skipped:true});
+  const entry={id:uid(),at:Date.now(),label:((s.cur&&s.cur.title)||s.name||"Untitled meeting").trim(),date:was?fmtDateDisp(was):"",iso:was,skipped:true};
+  s.log.unshift(entry);
   s.cur.date=newDate||"";
   save();
   if(s.id===DB.activeId){bindActive();fillHeader();updateHistBtn();}
   renderRail();renderHome();
+  return entry;
+}
+/* ---- undo a skip: put the date back and drop the note ---- */
+function skipEntryISO(e){
+  if(e.iso)return e.iso;
+  if(!e.date)return "";
+  const d=new Date(e.date);return isNaN(d)?"":toISO(d); // older notes stored only the display string
+}
+function undoSkip(s,entry){
+  if(!s||!entry)return false;
+  const iso=skipEntryISO(entry);
+  if(!iso){alert("This skip note is too old to restore automatically — set the date by hand from the agenda.");return false;}
+  // has the agenda moved on since the skip (a newer agenda saved)? then say what the date change means first
+  const movedOn=(s.log||[]).some(e=>e.snap&&(e.at||0)>(entry.at||0));
+  if(movedOn&&!confirm("A newer agenda has been saved since this skip. Restoring sets the current meeting's date back to "+fmtDateDisp(iso)+". Continue?"))return false;
+  s.cur.date=iso;
+  s.log=(s.log||[]).filter(e=>e.id!==entry.id);
+  save();
+  if(s.id===DB.activeId){bindActive();fillHeader();updateHistBtn();}
+  renderAll();
+  if(document.getElementById("histDrawer").classList.contains("open"))showHistList();
+  return true;
+}
+/* ---- toast ---- */
+let _toastTimer=null;
+function hideToast(){const t=document.getElementById("toast");if(!t)return;t.classList.remove("show");if(_toastTimer){clearTimeout(_toastTimer);_toastTimer=null;}}
+function showToast(html,opts){
+  opts=opts||{};const ms=opts.ms||8000;
+  const t=document.getElementById("toast");if(!t)return;
+  if(_toastTimer){clearTimeout(_toastTimer);_toastTimer=null;}
+  t.innerHTML="";
+  const msg=document.createElement("span");msg.innerHTML=html;t.append(msg);
+  if(opts.actionLabel&&opts.onAction){const b=document.createElement("button");b.className="t-act";b.textContent=opts.actionLabel;b.onclick=()=>{hideToast();opts.onAction();};t.append(b);}
+  const x=document.createElement("button");x.className="t-x";x.innerHTML="×";x.title="Dismiss";x.onclick=hideToast;t.append(x);
+  const bar=document.createElement("span");bar.className="t-bar";t.append(bar);
+  t.classList.add("show");
+  requestAnimationFrame(()=>{bar.style.transitionDuration=ms+"ms";bar.style.transform="scaleX(0)";});
+  _toastTimer=setTimeout(hideToast,ms);
 }
 function closeSkip(){const o=document.getElementById("skOverlay");if(o)o.classList.remove("open");}
 function openSkipDialog(s){
@@ -2147,7 +2198,11 @@ function openSkipDialog(s){
     const go=document.createElement("button");go.className="nm-btn primary";
     go.textContent=next?("Skip to "+fmtDateShort(next)):"Pick a date first";
     if(!next){go.disabled=true;go.style.opacity=".55";go.style.cursor="default";}
-    else go.onclick=()=>{skipOccurrence(s,next);closeSkip();};
+    else go.onclick=()=>{
+      const was=(s.cur&&s.cur.date)||"";
+      const entry=skipOccurrence(s,next);closeSkip();
+      showToast("Skipped "+(was?"<b>"+esc(fmtDateShort(was))+"</b>":"this occurrence")+" — next meeting is "+esc(fmtDateShort(next))+".",{actionLabel:"Undo",onAction:()=>undoSkip(s,entry)});
+    };
     foot.append(cancel,go);body.append(foot);
   }
   draw();
@@ -2190,6 +2245,11 @@ function showHistList(){
       if(skipped){
         sub.textContent=(entry.date?entry.date+"  \u00b7  ":"")+"noted "+fmtDate(entry.at);
         pills.innerHTML='<span class="he-pill skip">Meeting skipped</span>';
+        if(skipEntryISO(entry)){
+          const rs=document.createElement("button");rs.className="he-restore";rs.innerHTML="\u21ba Restore this meeting";rs.title="Un-skip: set the meeting back to this date and remove the note";
+          rs.onclick=(ev)=>{ev.stopPropagation();undoSkip(activeSeries(),entry);};
+          pills.append(rs);
+        }
         main.append(tt,sub,pills);
         main.style.cursor="default";
       }else{
