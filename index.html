@@ -2574,6 +2574,17 @@ function byNextDate(a,b){
 }
 function newBtn(){const b=document.createElement("button");b.className="home-new";b.innerHTML='<span style="font-size:15px;font-weight:700">+</span> New meeting';b.onclick=openNewMeeting;return b;}
 function emptyBox(h,body,withBtn){const e=document.createElement("div");e.className="home-empty";const hh=document.createElement("div");hh.className="he-h";hh.textContent=h;const bb=document.createElement("div");bb.className="he-b";bb.textContent=body;e.append(hh,bb);if(withBtn)e.append(newBtn());return e;}
+function lastMeetingDate(s){
+  // returns {date, held}: held=true when the date is a meeting that took place (a saved agenda, or a current date already past)
+  const curDate=(s.cur&&s.cur.date)||"";
+  const today=toISO(new Date());
+  if(!s.recurring)return {date:curDate,held:!!curDate&&curDate<=today};
+  const hist=(s.log||[]).filter(e=>e.snap&&e.snap.date).map(e=>e.snap.date).sort();
+  const lastHist=hist.length?hist[hist.length-1]:"";
+  if(curDate&&curDate<=today&&(!lastHist||curDate>lastHist))return {date:curDate,held:true};
+  if(lastHist)return {date:lastHist,held:true};
+  return {date:curDate,held:false};
+}
 function meetingCard(s,showDay){
   const c=document.createElement("div");c.className="mcard"+(s.archived?" archived":"");
   const col=cardColor(s);c.style.borderLeft="3px solid "+col;
@@ -2584,11 +2595,17 @@ function meetingCard(s,showDay){
     const rest=document.createElement("button");rest.className="mc-restore";rest.title="Restore to sidebar";rest.innerHTML=ICO_RESTORE;
     rest.onclick=(e)=>{e.stopPropagation();unarchiveSeries(s);};
     topr.append(nm,rest);
+    // one-off: the meeting's date. series: the date of the last meeting that happened.
+    const lm=lastMeetingDate(s),ld=lm.date;
+    const dl=document.createElement("div");
+    if(ld){dl.className="mc-line";dl.innerHTML=IC_CAL+"<span>"+(s.recurring?(lm.held?"Last met ":"Was scheduled "):"")+esc(fmtDateDisp(ld))+((!s.recurring&&s.cur&&s.cur.time)?" \u00b7 "+esc(fmtTimeDisp(s.cur.time)):"")+"</span>";}
+    else{dl.className="mc-line muted";dl.innerHTML=IC_CAL+"<span>No date</span>";}
+    dl.style.marginTop="6px";
     const bd=document.createElement("div");bd.className="mc-badges";
     const b=document.createElement("span");b.className="mc-badge arch";
     b.textContent="Archived"+(s.log.length?" \u00b7 "+s.log.length+" past agenda"+(s.log.length!==1?"s":""):(s.recurring?" \u00b7 "+cadenceLabel(s.cadence,s.cadenceDays).toLowerCase():" \u00b7 one-off"));
     bd.append(b);
-    c.append(topr,bd);
+    c.append(topr,dl,bd);
     c.onclick=()=>openMeeting(s.id);
     return c;
   }
