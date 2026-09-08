@@ -1961,7 +1961,7 @@ function doArchiveWeek(sr,nd){
   const carriedActions=ag.actions.filter(a=>!a.done&&a.t.trim()).map(a=>({id:uid(),t:a.t,owner:a.owner,done:false,due:a.due||"",clientId:a.clientId||null,notes:a.notes||"",shots:(a.shots||[]).slice()}));
   const carriedPark=ag.park.filter(p=>p.trim());
   const next=BLANK();
-  next.title=ag.title;next.attendees=ag.attendees.slice();next.time=ag.time;next.date=nd||"";
+  next.title=ag.title;next.purpose=ag.purpose||"";next.attendees=ag.attendees.slice();next.time=ag.time;next.date=nd||"";
   next.topics=carriedTopics;next.actions=carriedActions;next.park=carriedPark;
   sr.cur=next;
   if(isActive){S=next;fillHeader();}
