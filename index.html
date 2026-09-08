@@ -594,6 +594,9 @@
   .pt-x{flex:none;border:0;background:none;color:var(--faint);font-size:15px;line-height:1;cursor:pointer;padding:0 2px;margin-top:2px;opacity:0;transition:opacity .12s,color .12s}
   .points li:hover .pt-x,.park li:hover .pt-x,.pt-x:focus{opacity:1}
   .pt-x:hover{color:#c0392b}
+  span.pt-mk{cursor:grab}
+  .points li.dragging{opacity:.45}
+  .points li.drop-hint{outline:2px dashed var(--accent);outline-offset:2px;border-radius:6px}
   .pt-toggle,.pt-spacer{flex:none;width:16px;margin-top:3px}
   .pt-spacer{display:block;height:1px}
   .pt-toggle{border:0;background:none;color:var(--muted);cursor:pointer;font-size:10px;line-height:1;padding:4px 0;text-align:center;border-radius:5px;transition:.12s}
@@ -938,7 +941,7 @@
   <div class="card">
     <div class="sec-head">
       <span class="sec-title">Topics</span>
-      <span class="sec-hint">drag &#9670; to reorder &middot; in a sub-point, Enter adds a bullet &middot; Tab indents &middot; Shift+Tab outdents</span>
+      <span class="sec-hint">drag &#9670; or &bull; to reorder &middot; in a sub-point, Enter adds a bullet &middot; Tab indents &middot; Shift+Tab outdents</span>
     </div>
     <div id="topics"></div>
     <button class="addtopic" id="addTopic"><span class="p">+</span> Add topic</button>
@@ -1475,7 +1478,14 @@ function ptText(p){return (p&&typeof p==="object")?(p.t||""):(p||"");}
 function ptLvl(p){return (p&&typeof p==="object"&&p.lvl)?Math.max(0,Math.min(3,p.lvl|0)):0;}
 function ptKeep(p){return !!(p&&typeof p==="object"&&p.keep);}
 function placeCaretEnd(el){try{const r=document.createRange();r.selectNodeContents(el);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
-let _focusPoint=null,tpDragIndex=null;
+let _focusPoint=null,tpDragIndex=null,spDrag=null;
+function moveSubPoint(fromTid,fromIdx,toTid,toIdx){
+  const src=S.topics.find(t=>t.id===fromTid),dst=S.topics.find(t=>t.id===toTid);if(!src||!dst)return;
+  const moved=src.points.splice(fromIdx,1)[0];if(!moved)return;
+  if(toIdx<0||toIdx>dst.points.length)dst.points.push(moved);else dst.points.splice(toIdx,0,moved);
+  dst.collapsed=false;
+  save();renderTopics();
+}
 function renderTopics(){
   const w=document.getElementById("topics");w.innerHTML="";
   S.topics.forEach((tp,i)=>{
@@ -1486,6 +1496,10 @@ function renderTopics(){
     del.onclick=()=>{S.topics.splice(i,1);if(!S.topics.length)S.topics.push({id:uid(),title:"",points:[]});save();renderTopics();};
 
     const top=document.createElement("div");top.className="tb-top";
+    // dropping a sub-point on a topic's title row appends it to that topic (works for empty/collapsed topics)
+    top.addEventListener("dragover",e=>{if(!spDrag)return;e.preventDefault();e.stopPropagation();try{e.dataTransfer.dropEffect="move";}catch(_){}box.classList.add("drop-hint");});
+    top.addEventListener("dragleave",()=>{if(spDrag)box.classList.remove("drop-hint");});
+    top.addEventListener("drop",e=>{if(!spDrag)return;e.preventDefault();e.stopPropagation();box.classList.remove("drop-hint");const d=spDrag;spDrag=null;moveSubPoint(d.tid,d.idx,tp.id,-1);});
     const mk=document.createElement("span");mk.className="tb-mk";
     mk.draggable=true;mk.title="Drag to reorder";
     mk.addEventListener("dragstart",e=>{
@@ -1539,6 +1553,14 @@ function renderTopics(){
         else if(ev.key==="Enter"){ev.preventDefault();tp.points.splice(pi+1,0,{t:"",lvl:ptLvl(p)});save();_focusPoint={tid:tp.id,idx:pi+1};renderTopics();}
       });
       if(_focusPoint&&_focusPoint.tid===tp.id&&_focusPoint.idx===pi){const el=pt;setTimeout(()=>{el.focus();placeCaretEnd(el);},0);}
+      // drag the bullet/pin to reorder — within this topic or into another
+      mk.draggable=true;
+      mk.addEventListener("dragstart",e=>{spDrag={tid:tp.id,idx:pi};li.classList.add("dragging");e.stopPropagation();
+        try{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain","sp");e.dataTransfer.setDragImage(li,16,12);}catch(_){}});
+      mk.addEventListener("dragend",()=>{spDrag=null;document.querySelectorAll("#topics .dragging,#topics .drop-hint").forEach(x=>x.classList.remove("dragging","drop-hint"));});
+      li.addEventListener("dragover",e=>{if(!spDrag)return;if(spDrag.tid===tp.id&&spDrag.idx===pi)return;e.preventDefault();e.stopPropagation();try{e.dataTransfer.dropEffect="move";}catch(_){}li.classList.add("drop-hint");});
+      li.addEventListener("dragleave",()=>li.classList.remove("drop-hint"));
+      li.addEventListener("drop",e=>{if(!spDrag)return;e.preventDefault();e.stopPropagation();li.classList.remove("drop-hint");const d=spDrag;spDrag=null;moveSubPoint(d.tid,d.idx,tp.id,pi);});
       li.append(mk,pt,del);ul.append(li);
     });
 
