@@ -1479,10 +1479,18 @@ function ptLvl(p){return (p&&typeof p==="object"&&p.lvl)?Math.max(0,Math.min(3,p
 function ptKeep(p){return !!(p&&typeof p==="object"&&p.keep);}
 function placeCaretEnd(el){try{const r=document.createRange();r.selectNodeContents(el);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
 let _focusPoint=null,tpDragIndex=null,spDrag=null;
+// a bullet's block = itself plus every following bullet indented deeper than it; the next bullet at its level or shallower is the bookend
+function subPointBlockLen(points,idx){const lvl=ptLvl(points[idx]);let end=idx+1;while(end<points.length&&ptLvl(points[end])>lvl)end++;return end-idx;}
 function moveSubPoint(fromTid,fromIdx,toTid,toIdx){
   const src=S.topics.find(t=>t.id===fromTid),dst=S.topics.find(t=>t.id===toTid);if(!src||!dst)return;
-  const moved=src.points.splice(fromIdx,1)[0];if(!moved)return;
-  if(toIdx<0||toIdx>dst.points.length)dst.points.push(moved);else dst.points.splice(toIdx,0,moved);
+  const len=subPointBlockLen(src.points,fromIdx);
+  const same=(src===dst);
+  if(same&&toIdx>=fromIdx&&toIdx<fromIdx+len)return;            // dropped onto itself or one of its own children
+  // dragging down lands after the target row; dragging up (or into another topic) lands before it
+  let insertAt=(toIdx<0)?-1:((same&&toIdx>fromIdx)?toIdx+1:toIdx);
+  const block=src.points.splice(fromIdx,len);if(!block.length)return;
+  if(same&&insertAt>fromIdx)insertAt-=len;
+  if(insertAt<0||insertAt>dst.points.length)dst.points.push(...block);else dst.points.splice(insertAt,0,...block);
   dst.collapsed=false;
   save();renderTopics();
 }
@@ -1555,10 +1563,11 @@ function renderTopics(){
       if(_focusPoint&&_focusPoint.tid===tp.id&&_focusPoint.idx===pi){const el=pt;setTimeout(()=>{el.focus();placeCaretEnd(el);},0);}
       // drag the bullet/pin to reorder — within this topic or into another
       mk.draggable=true;
-      mk.addEventListener("dragstart",e=>{spDrag={tid:tp.id,idx:pi};li.classList.add("dragging");e.stopPropagation();
+      mk.addEventListener("dragstart",e=>{const len=subPointBlockLen(tp.points,pi);spDrag={tid:tp.id,idx:pi,len:len};
+        [...ul.children].slice(pi,pi+len).forEach(l=>l.classList.add("dragging"));e.stopPropagation();
         try{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain","sp");e.dataTransfer.setDragImage(li,16,12);}catch(_){}});
       mk.addEventListener("dragend",()=>{spDrag=null;document.querySelectorAll("#topics .dragging,#topics .drop-hint").forEach(x=>x.classList.remove("dragging","drop-hint"));});
-      li.addEventListener("dragover",e=>{if(!spDrag)return;if(spDrag.tid===tp.id&&spDrag.idx===pi)return;e.preventDefault();e.stopPropagation();try{e.dataTransfer.dropEffect="move";}catch(_){}li.classList.add("drop-hint");});
+      li.addEventListener("dragover",e=>{if(!spDrag)return;if(spDrag.tid===tp.id&&pi>=spDrag.idx&&pi<spDrag.idx+(spDrag.len||1))return;e.preventDefault();e.stopPropagation();try{e.dataTransfer.dropEffect="move";}catch(_){}li.classList.add("drop-hint");});
       li.addEventListener("dragleave",()=>li.classList.remove("drop-hint"));
       li.addEventListener("drop",e=>{if(!spDrag)return;e.preventDefault();e.stopPropagation();li.classList.remove("drop-hint");const d=spDrag;spDrag=null;moveSubPoint(d.tid,d.idx,tp.id,pi);});
       li.append(mk,pt,del);ul.append(li);
