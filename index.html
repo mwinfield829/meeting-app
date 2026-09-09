@@ -1172,6 +1172,8 @@ function fillHeader(){
   if(tt)tt.classList.toggle("placeholder",!S.time);
   const gc=document.getElementById("agGcal");
   if(gc){const s=activeSeries();if(s&&s.gcalLink){gc.href=s.gcalLink;gc.style.display="";}else{gc.style.display="none";gc.removeAttribute("href");}}
+  const wb=document.getElementById("weekBtn");
+  if(wb){const s=activeSeries();wb.style.display=(s&&s.recurring)?"":"none";}   // one-offs have no "next" meeting
   const sk=document.getElementById("agSkip");
   if(sk){const s=activeSeries();sk.style.display=canSkip(s)?"":"none";}
 }
@@ -2484,7 +2486,7 @@ function createSeries(name,recurring,category,cadence,clientId){
   renderAll();
 }
 function renameSeries(s){const n=(prompt("Rename meeting",s.name)||"").trim();if(n){s.name=n;save();renderRail();}}
-function toggleRecurring(s){s.recurring=!s.recurring;if(s.recurring&&!s.cadence)s.cadence="weekly";save();renderRail();}
+function toggleRecurring(s){s.recurring=!s.recurring;if(s.recurring&&!s.cadence)s.cadence="weekly";save();renderRail();if(s.id===DB.activeId)fillHeader();}
 function setCadence(s,c){s.cadence=c;save();renderRail();}
 function toggleCategory(s){s.category=s.category==="internal"?"client":"internal";save();renderRail();}
 function deleteSeries(s){
@@ -3124,7 +3126,7 @@ function heroCard(s){
 }
 function buildCardMenu(s,m){
   m.innerHTML="";
-  const bs=document.createElement("button");bs.textContent="Save & start next…";bs.onclick=()=>{closeSMenu();archiveWeek(s);};m.append(bs);
+  if(s.recurring){const bs=document.createElement("button");bs.textContent="Save & start next…";bs.onclick=()=>{closeSMenu();archiveWeek(s);};m.append(bs);}
   if(canSkip(s)){const b=document.createElement("button");b.textContent="Skip this occurrence…";b.onclick=()=>{closeSMenu();openSkipDialog(s);};m.append(b);}
   const cl=s.clientId?clientById(s.clientId):null;
   const bcl=document.createElement("button");bcl.innerHTML="Client: "+esc(cl?cl.name:"none")+" &nbsp;›";
