@@ -2177,6 +2177,9 @@ function skipOccurrence(s,newDate){
   const was=(s.cur&&s.cur.date)||"";
   s.log=s.log||[];
   const entry={id:uid(),at:Date.now(),label:((s.cur&&s.cur.title)||s.name||"Untitled meeting").trim(),date:was?fmtDateDisp(was):"",iso:was,skipped:true};
+  // completed actions don't carry to the next occurrence: file them on the skip note so they still count under Completed
+  const doneActs=(s.cur.actions||[]).filter(a=>a.done&&(a.t||"").trim());
+  if(doneActs.length){entry.snap={title:s.cur.title||"",topics:[],park:[],attendees:[],actions:JSON.parse(JSON.stringify(doneActs))};s.cur.actions=s.cur.actions.filter(a=>!(a.done&&(a.t||"").trim()));}
   s.log.unshift(entry);
   s.cur.date=newDate||"";
   save();
@@ -2198,9 +2201,10 @@ function undoSkip(s,entry){
   const movedOn=(s.log||[]).some(e=>e.snap&&(e.at||0)>(entry.at||0));
   if(movedOn&&!confirm("A newer agenda has been saved since this skip. Restoring sets the current meeting's date back to "+fmtDateDisp(iso)+". Continue?"))return false;
   s.cur.date=iso;
+  if(entry.snap&&Array.isArray(entry.snap.actions))entry.snap.actions.forEach(a=>{if(!s.cur.actions.some(x=>x.id===a.id))s.cur.actions.push(a);}); // completed actions filed on the note come back
   s.log=(s.log||[]).filter(e=>e.id!==entry.id);
   save();
-  if(s.id===DB.activeId){bindActive();fillHeader();updateHistBtn();}
+  if(s.id===DB.activeId){bindActive();fillHeader();updateHistBtn();renderActions();}
   renderAll();
   if(document.getElementById("histDrawer").classList.contains("open"))showHistList();
   return true;
@@ -2289,7 +2293,8 @@ function showHistList(){
       const pills=document.createElement("div");pills.className="he-pills";
       if(skipped){
         sub.textContent=(entry.date?entry.date+"  \u00b7  ":"")+"noted "+fmtDate(entry.at);
-        pills.innerHTML='<span class="he-pill skip">Meeting skipped</span>';
+        const nDone=(entry.snap&&entry.snap.actions)?entry.snap.actions.length:0;
+        pills.innerHTML='<span class="he-pill skip">Meeting skipped</span>'+(nDone?'<span class="he-pill">'+nDone+" action"+(nDone!==1?"s":"")+" completed</span>":"");
         if(skipEntryISO(entry)){
           const rs=document.createElement("button");rs.className="he-restore";rs.innerHTML="\u21ba Restore this meeting";rs.title="Un-skip: set the meeting back to this date and remove the note";
           rs.onclick=(ev)=>{ev.stopPropagation();undoSkip(activeSeries(),entry);};
@@ -2684,7 +2689,7 @@ function lastMeetingDate(s){
   const curDate=(s.cur&&s.cur.date)||"";
   const today=toISO(new Date());
   if(!s.recurring)return {date:curDate,held:!!curDate&&curDate<=today};
-  const hist=(s.log||[]).filter(e=>e.snap&&e.snap.date).map(e=>e.snap.date).sort();
+  const hist=(s.log||[]).filter(e=>e.snap&&e.snap.date&&!e.skipped).map(e=>e.snap.date).sort();
   const lastHist=hist.length?hist[hist.length-1]:"";
   if(curDate&&curDate<=today&&(!lastHist||curDate>lastHist))return {date:curDate,held:true};
   if(lastHist)return {date:lastHist,held:true};
