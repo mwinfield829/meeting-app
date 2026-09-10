@@ -1151,7 +1151,7 @@ function load(){
   DB.clients.forEach(c=>{if(!Array.isArray(c.colors))c.colors=[];c.colors=c.colors.filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);if(typeof c.archived!=="boolean")c.archived=false;if(typeof c.internalDefault!=="boolean")c.internalDefault=false;});
   if(!Array.isArray(DB.series)||!DB.series.length){const s=newSeries("Meeting 1",true);DB.series=[s];DB.activeId=s.id;}
   DB.series.forEach(s=>{if(s.category!=="internal")s.category="client";if(typeof s.recurring!=="boolean")s.recurring=true;if(s.recurring&&!s.cadence)s.cadence="weekly";if(typeof s.archived!=="boolean")s.archived=false;if(!("clientId" in s))s.clientId=null;if(s.clientId&&!clientById(s.clientId))s.clientId=null;if(!Array.isArray(s.log))s.log=[];if(!("gcalId" in s))s.gcalId=null;if(!("gcalLink" in s))s.gcalLink=null;if(!Array.isArray(s.cadenceDays))s.cadenceDays=[];});
-  DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.topics))s.cur.topics.forEach(t=>{if(Array.isArray(t.points))t.points=t.points.map(p=>(p&&typeof p==="object")?{t:p.t||"",lvl:Math.max(0,Math.min(6,p.lvl|0)),keep:!!p.keep}:{t:(p||""),lvl:0,keep:false});});});
+  DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.topics))s.cur.topics.forEach(t=>{if(Array.isArray(t.points))t.points=t.points.map(p=>(p&&typeof p==="object")?{t:p.t||"",lvl:Math.max(0,Math.min(8,p.lvl|0)),keep:!!p.keep}:{t:(p||""),lvl:0,keep:false});});});
   DB.series.forEach(s=>{if(s.cur&&Array.isArray(s.cur.actions))s.cur.actions.forEach(a=>{if(!("clientId" in a))a.clientId=(seriesCat(s)==="internal")?null:(s.clientId||null);if(!("due" in a))a.due="";if(typeof a.notes!=="string")a.notes="";if(!Array.isArray(a.shots))a.shots=[];});});
   (DB.standaloneActions||[]).forEach(a=>{if(typeof a.notes!=="string")a.notes="";if(!Array.isArray(a.shots))a.shots=[];});
   if(!DB.activeId||!activeSeries())DB.activeId=DB.series[0].id;
@@ -1488,7 +1488,7 @@ function renderAttendees(){
 
 /* topics as green boxes */
 function ptText(p){return (p&&typeof p==="object")?(p.t||""):(p||"");}
-const MAX_LVL=6; // deepest sub-point indent
+const MAX_LVL=8; // deepest sub-point indent
 function ptLvl(p){return (p&&typeof p==="object"&&p.lvl)?Math.max(0,Math.min(MAX_LVL,p.lvl|0)):0;}
 function ptKeep(p){return !!(p&&typeof p==="object"&&p.keep);}
 function placeCaretEnd(el){try{const r=document.createRange();r.selectNodeContents(el);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
