@@ -333,7 +333,7 @@
   .mc-name{font-family:"Newsreader",serif;font-size:17px;color:var(--ink)}
   .mc-top{display:flex;align-items:flex-start;gap:10px;padding-right:30px} /* right padding keeps the name clear of the hover ⋯ */
   .mc-av{width:32px;height:32px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:"Archivo",sans-serif;font-weight:700;font-size:12px}
-  .mc-top .mc-name{flex:1;min-width:0;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;margin-top:3px}
+  .mc-top .mc-name{flex:1;min-width:0;line-height:1.3;min-height:2.6em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;margin-top:3px} /* always reserve two lines so tiles line up */
   .mc-when{font-family:"Archivo",sans-serif;font-weight:600;font-size:10.5px;color:var(--muted);background:var(--paper);border:1px solid var(--hair-strong);border-radius:20px;padding:3px 0;white-space:nowrap;flex:none;min-width:84px;text-align:center;margin-left:auto}
   .mc-when.today{color:var(--accent-ink);background:var(--accent-soft);border-color:transparent}
   .mc-read{display:flex;align-items:center;gap:12px;margin-top:11px;font-size:11.5px;color:var(--muted)}
