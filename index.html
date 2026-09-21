@@ -541,6 +541,8 @@
   .mc-more{position:absolute;top:9px;right:9px;width:24px;height:24px;border-radius:6px;background:var(--paper);border:1px solid var(--hair);color:var(--muted);font-size:15px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:4}
   .mcard:hover .mc-more,.mc-more.open{display:flex}
   .mc-more:hover{color:var(--accent);border-color:var(--accent)}
+  .cad-div{height:1px;background:var(--hair);margin:8px 0 6px}
+  .cad-pop{max-height:min(520px,75vh);overflow:auto}
   .ag-badge-btn{cursor:pointer}
   .ag-badge-btn:hover{background:rgba(255,255,255,.26)}
   .cadcv{font-size:9px;opacity:.85;margin-left:1px}
@@ -1385,7 +1387,7 @@ function fillAgendaEye(){
   const cl=s.clientId?clientById(s.clientId):null;
   const cad=s.recurring?cadenceLabel(s.cadence,s.cadenceDays):"One-off";
   const label=(cl?cl.name:(s.category==="internal"?"Internal":"Meeting"))+" \u00b7 "+cad;
-  const b=document.createElement("button");b.className="ag-badge ag-badge-btn";b.title="Change how this meeting repeats";
+  const b=document.createElement("button");b.className="ag-badge ag-badge-btn";b.title="Change the client or how this meeting repeats";
   b.innerHTML='<span class="d"></span> '+esc(label)+' <span class="cadcv">\u25be</span>';
   b.onclick=(ev)=>{ev.stopPropagation();openCadenceEditor(b);};
   e.append(b);
@@ -1409,8 +1411,23 @@ function openCadenceEditor(anchor){
     else{s.recurring=true;s.cadence=val;if(val==="days"&&(!Array.isArray(s.cadenceDays)||!s.cadenceDays.length)){const wd=parseISO(s.cur&&s.cur.date);s.cadenceDays=[wd?wd.getDay():1];}}
     sync();
   }
+  function setClient(id){
+    s.clientId=id;save();
+    applyBrand();                                                        // re-themes the agenda and rebuilds the hero badge…
+    anchor=document.querySelector("#agEye .ag-badge-btn")||anchor;popAnchor=anchor; // …so re-bind the popover to the live badge
+    refreshBadge();renderRail();renderHome();draw();positionPop(anchor);
+  }
   function draw(){
     pop.innerHTML="";
+    // client section
+    const clab=document.createElement("div");clab.className="cad-lab";clab.textContent="Client";pop.append(clab);
+    const copt=(id,name)=>{const b=document.createElement("button");b.className="cad-opt"+(s.clientId===id?" cur":"");b.innerHTML='<span>'+esc(name)+'</span>'+(s.clientId===id?'<span class="ck">✓</span>':'');b.onclick=(e)=>{e.stopPropagation();setClient(id);};return b;};
+    pop.append(copt(null,"No client"));
+    activeClients().forEach(c=>pop.append(copt(c.id,c.name)));
+    const nw=document.createElement("button");nw.className="cad-opt";nw.style.color="var(--accent)";nw.innerHTML="<span>+ New client…</span>";
+    nw.onclick=(e)=>{e.stopPropagation();const n=(prompt("New client name")||"").trim();if(n){const c=newClient(n);DB.clients.push(c);setClient(c.id);closePop();openClientEditor(c.id);}};
+    pop.append(nw);
+    const div=document.createElement("div");div.className="cad-div";pop.append(div);
     const lab=document.createElement("div");lab.className="cad-lab";lab.textContent="Repeats";pop.append(lab);
     OPTS.forEach(o=>{
       const b=document.createElement("button");b.className="cad-opt"+(cur()===o[0]?" cur":"");
