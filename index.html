@@ -774,6 +774,18 @@
   .gc-hero-link svg{width:15px;height:15px}
   .mc-gcal{display:inline-flex;align-items:center;gap:5px;margin-top:9px;padding-top:9px;width:100%;border-top:1px solid var(--hair);font-family:"Archivo",sans-serif;font-weight:600;font-size:11px;color:var(--muted);text-decoration:none}
   .mc-gcal svg{width:13px;height:13px;color:var(--faint)}
+  /* card footer: calendar link left, wrap-up action right */
+  .mc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;padding-top:9px;border-top:1px solid var(--hair)}
+  .mc-foot .mc-gcal{margin:0;padding:0;border:0;width:auto}
+  .mc-cta{display:inline-flex;align-items:center;gap:5px;border:0;border-radius:7px;padding:5px 10px;background:#BA7517;color:#fff;font-family:"Archivo",sans-serif;font-weight:700;font-size:10.5px;cursor:pointer;white-space:nowrap;transition:.12s}
+  .mc-cta:hover{background:#9A5F0F}
+  .mc-cta svg{width:12px;height:12px}
+  .mc-when.due{color:#7A4A05;background:#FAEEDA;border-color:transparent}
+  .mc-line .mc-date.past{color:var(--faint)}
+  .home-gh{display:flex;align-items:center;gap:8px;font-family:"Archivo",sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 0 10px}
+  .home-gh .n{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:500;letter-spacing:0;background:var(--paper);border:1px solid var(--hair);border-radius:9px;padding:0 7px}
+  .home-gh.due{color:#7A4A05}
+  .home-gh.due .n{background:#FAEEDA;border-color:transparent;color:#7A4A05}
   .mc-gcal:hover,.mc-gcal:hover svg{color:var(--accent)}
   .gc-ev-list{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto;margin-top:6px}
   .gc-ev{display:flex;align-items:flex-start;gap:11px;background:var(--paper);border:1px solid var(--hair-strong);border-radius:9px;padding:11px 13px;cursor:pointer}
@@ -2694,6 +2706,9 @@ const IC_CAL='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
 const ICO_RESTORE='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.3 2.6L3 8"/><path d="M3 3v5h5"/></svg>';
 function fmtDayDate(iso){const d=parseISO(iso);return d?d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}):"";}
 function within7(iso){const d=parseISO(iso);if(!d)return false;const t=new Date();t.setHours(0,0,0,0);const end=new Date(t);end.setDate(end.getDate()+7);return d>=t&&d<end;}
+// a recurring meeting whose date has passed but hasn't been "saved & started next" yet
+function needsWrapUp(s){return !!(s&&!s.archived&&s.recurring&&s.cur&&s.cur.date&&s.cur.date<toISO(new Date()));}
+function daysAgoLabel(iso){const d=parseISO(iso);if(!d)return "";const t=new Date();t.setHours(0,0,0,0);const n=Math.round((t-d)/86400000);return n<=1?"Yesterday":(n+" days ago");}
 function byNextDate(a,b){
   const da=(a.cur&&a.cur.date)||"",db=(b.cur&&b.cur.date)||"";
   if(da!==db){if(!da)return 1;if(!db)return -1;return da<db?-1:1;}
@@ -2753,15 +2768,22 @@ function meetingCard(s,showDay){
   const dl=document.createElement("div");
   // date row: timing chip first (left), date & time right-aligned
   dl.className="mc-line"+(date?"":" muted");
-  if(rc){const chip=document.createElement("span");chip.className="mc-when"+(rc.today?" today":"");chip.textContent=rc.label;dl.append(chip);}
-  const dt=document.createElement("span");dt.className="mc-date";
+  const due=needsWrapUp(s);
+  if(rc){const chip=document.createElement("span");chip.className="mc-when"+(rc.today?" today":"")+(rc.due?" due":"");chip.textContent=rc.label;dl.append(chip);}
+  const dt=document.createElement("span");dt.className="mc-date"+(due?" past":"");
   dt.innerHTML=IC_CAL+"<span>"+(date?((showDay?fmtDayDate(date):fmtDateDisp(date))+(time?" \u00b7 "+fmtTimeDisp(time):"")):"No date set")+"</span>";
   dl.append(dt);
   c.append(dl);
   const more=document.createElement("button");more.className="mc-more";more.innerHTML="⋯";more.title="Meeting options";
   more.onclick=(e)=>{e.stopPropagation();openCardMenu(s,more);};
   c.append(more);
-  if(s.gcalLink){const g=document.createElement("a");g.className="mc-gcal";g.href=s.gcalLink;g.target="_blank";g.rel="noopener";g.title="Open in Google Calendar";g.innerHTML=GCAL_ICON+' <span>Google Calendar</span>';g.onclick=(e)=>e.stopPropagation();c.append(g);}
+  if(s.gcalLink||due){
+    const foot=document.createElement("div");foot.className="mc-foot";
+    if(s.gcalLink){const g=document.createElement("a");g.className="mc-gcal";g.href=s.gcalLink;g.target="_blank";g.rel="noopener";g.title="Open in Google Calendar";g.innerHTML=GCAL_ICON+' <span>Google Calendar</span>';g.onclick=(e)=>e.stopPropagation();foot.append(g);}
+    else{foot.append(document.createElement("span"));}
+    if(due){const b=document.createElement("button");b.className="mc-cta";b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5v14l9-7-9-7z"/><path d="M19 5v14"/></svg> Save &amp; start next';b.title="This meeting has happened — archive it and start the next one";b.onclick=(e)=>{e.stopPropagation();archiveWeek(s);};foot.append(b);}
+    c.append(foot);
+  }
   c.onclick=()=>openMeeting(s.id);
   return c;
 }
@@ -3099,7 +3121,7 @@ function relChip(s){
   if(days===0)return {label:"Today",today:true};
   if(days===1)return {label:"Tomorrow",today:false};
   if(days>1&&days<=14)return {label:"in "+days+" days",today:false};
-  if(days<0)return {label:fmtDayDate(s.cur.date),today:false};
+  if(days<0)return needsWrapUp(s)?{label:daysAgoLabel(s.cur.date),today:false,due:true}:{label:fmtDayDate(s.cur.date),today:false};
   return {label:fmtDayDate(s.cur.date),today:false};
 }
 function countdownLabel(s){
@@ -3219,9 +3241,16 @@ function renderHome(){
   opts.forEach(o=>{const b=document.createElement("button");b.className=filter===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.homeFilter=o[0];save();renderHome();};seg.append(b);});
   w.append(seg);
   if(filter==="week"){
+    const due=DB.series.filter(needsWrapUp).sort(byNextDate);   // oldest first
     const up=DB.series.filter(s=>!s.archived&&s.cur&&within7(s.cur.date)).sort(byNextDate);
-    if(!up.length){w.append(emptyBox("Nothing in the next 7 days","Switch to All to see every meeting, or open one from the sidebar to set its date."));}
-    else{const grid=document.createElement("div");grid.className="home-grid";up.forEach(s=>grid.append(meetingCard(s,true)));w.append(grid);}
+    const groupHead=(label,n,due)=>{const h=document.createElement("div");h.className="home-gh"+(due?" due":"");h.innerHTML=esc(label)+' <span class="n">'+n+'</span>';return h;};
+    if(!due.length&&!up.length){w.append(emptyBox("Nothing in the next 7 days","Switch to All to see every meeting, or open one from the sidebar to set its date."));}
+    else if(!due.length){const grid=document.createElement("div");grid.className="home-grid";up.forEach(s=>grid.append(meetingCard(s,true)));w.append(grid);}
+    else{
+      w.append(groupHead("Needs wrap-up",due.length,true));
+      const g1=document.createElement("div");g1.className="home-grid";due.forEach(s=>g1.append(meetingCard(s,true)));w.append(g1);
+      if(up.length){w.append(groupHead("Coming up",up.length,false));const g2=document.createElement("div");g2.className="home-grid";up.forEach(s=>g2.append(meetingCard(s,true)));w.append(g2);}
+    }
   }else if(filter==="archived"){
     const arch=DB.series.filter(s=>s.archived).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
     if(!arch.length){w.append(emptyBox("No archived meetings","Archive a meeting from its ⋯ menu in the sidebar to park it here — it leaves your sidebar and home but keeps all of its history."));}
