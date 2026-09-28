@@ -913,6 +913,9 @@
   .ap-drow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--hair);font-size:13px;color:var(--ink-soft);min-height:36px}
   .ap-drow:last-of-type{border-bottom:0}
   .ap-dk{width:62px;flex:none;color:var(--faint);font-size:11.5px;font-family:"Archivo",sans-serif;font-weight:600}
+  .ap-req{color:#c0392b}
+  .ap-drow.err .atag{border-color:#c0392b;color:#c0392b;box-shadow:0 0 0 2px rgba(192,57,43,.15)}
+  .ap-errmsg{font-family:"Archivo",sans-serif;font-size:11.5px;font-weight:600;color:#c0392b}
   .ap-from{background:none;border:0;padding:0;font-family:"Newsreader",serif;font-size:13.5px;color:var(--accent);cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--accent) 40%,transparent)}
   .ap-from:hover{color:var(--accent-ink)}
   .ap-status{display:inline-flex;align-items:center;gap:7px;background:none;border:1px solid var(--hair-strong);border-radius:20px;padding:4px 11px;font-family:"Archivo",sans-serif;font-weight:600;font-size:11.5px;color:var(--ink-soft);cursor:pointer}
@@ -1710,8 +1713,15 @@ function defaultActionClient(){const s=activeSeries();if(!s)return null;return s
 
 /* ---- action detail panel ---- */
 let apCtx=null;
-function closeActionPanel(){
-  const cur=apCtx;apCtx=null;
+function closeActionPanel(force){
+  const cur=apCtx;
+  // new actions made on the Actions page must have a client before they can be saved/closed
+  if(force!==true&&cur&&cur.ctx&&cur.ctx.requireClient){
+    const a=cur.a;
+    const hasContent=(rtext(a.t||"")||"").trim()||(rtext(a.notes||"")||"").trim()||(a.shots||[]).length;
+    if(hasContent&&!a.clientId){cur.clientError=true;drawActionPanel();const t=document.querySelector("#apBody .ap-drow.err .atag");if(t)t.focus();return;}
+  }
+  apCtx=null;
   const o=document.getElementById("apOverlay");if(o)o.classList.remove("open");
   if(cur&&cur.ctx&&cur.ctx.onClose)cur.ctx.onClose();
 }
@@ -1737,9 +1747,14 @@ function drawActionPanel(){
 
   const rCl=mk("Client");
   const cl=a.clientId?clientById(a.clientId):null;
+  if(apCtx&&apCtx.ctx&&apCtx.ctx.requireClient&&!cl){
+    rCl.querySelector(".ap-dk").innerHTML='Client <span class="ap-req">*</span>';
+    if(apCtx.clientError)rCl.classList.add("err");
+  }
   if(ro){const s=document.createElement("span");s.textContent=cl?cl.name:"—";rCl.append(s);}
   else{const b=document.createElement("button");b.className="atag "+(cl?"set":"empty-tag");b.textContent=cl?("◆ "+cl.name):"+ client";
     b.onclick=(e)=>{e.stopPropagation();openActionClientMenu(a,b,()=>{drawActionPanel();refresh();});};rCl.append(b);}
+  if(rCl.classList.contains("err")){const m=document.createElement("span");m.className="ap-errmsg";m.textContent="Pick a client to save this action";rCl.append(m);}
   body.append(rCl);
 
   const rDue=mk("Due");
@@ -1801,7 +1816,7 @@ function drawActionPanel(){
   if(ro){const sp=document.createElement("span");foot.append(sp);}
   else{
     const del=document.createElement("button");del.className="nm-btn";del.style.color="#c0392b";del.textContent="Delete action";
-    del.onclick=()=>{if(!confirm("Delete this action?"))return;if(ctx.onDelete)ctx.onDelete();closeActionPanel();};
+    del.onclick=()=>{if(!confirm("Delete this action?"))return;if(ctx.onDelete)ctx.onDelete();closeActionPanel(true);};
     foot.append(del);
   }
   const ok=document.createElement("button");ok.className="nm-btn primary";ok.textContent="Done";ok.onclick=closeActionPanel;
@@ -4397,6 +4412,7 @@ function renderActionsPage(){
     const drop=()=>{trashAction(a,{kind:"standalone"});DB.standaloneActions=(DB.standaloneActions||[]).filter(z=>z!==a);save();renderActionsPage();updateActionsNav();};
     openActionPanel(a,{
       rerender:renderActionsPage,
+      requireClient:true,
       onDelete:drop,
       onClose:()=>{
         const empty=!rtext(a.t).trim()&&!rtext(a.notes).trim()&&!((a.shots||[]).length);
