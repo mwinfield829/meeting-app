@@ -820,6 +820,7 @@
   .gc-ev input{width:17px;height:17px;margin-top:2px;accent-color:var(--accent);cursor:pointer;flex:none}
   .gc-ev-nm{font-family:"Newsreader",serif;font-size:16px;color:var(--ink);line-height:1.25}
   .gc-ev-meta{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);margin-top:4px}
+  .gc-search{margin:0 0 10px}
   .gc-ev-tag{font-family:"Archivo",sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);background:var(--paper);border:1px solid var(--hair-strong);border-radius:20px;padding:2px 8px;margin-left:8px;vertical-align:2px;white-space:nowrap}
   .gc-sk{display:flex;align-items:center;gap:12px;background:var(--card);border:0.5px solid var(--hair);border-radius:10px;padding:11px 13px;box-shadow:var(--shadow)}
   .gc-sk-mid{flex:1;min-width:0}
@@ -4129,21 +4130,31 @@ async function syncCalendar(btn){
 function closeReview(){const o=document.getElementById("gcOverlay");if(o)o.classList.remove("open");}
 function openReviewModal(cands,updated){
   let showNoGuests=false;
-  const body=document.getElementById("gcBody");
-  function draw(){
-    body.innerHTML="";
+  cands.forEach(c=>{if(typeof c.checked!=="boolean")c.checked=(c.kind==="new");}); // selection lives on the event, so filtering never loses it
+  const body=document.getElementById("gcBody");body.innerHTML="";
+  const h=document.createElement("div");h.className="nm-title";h.textContent="Add meetings from your calendar";body.append(h);
+  const sub=document.createElement("div");sub.className="home-sub";sub.style.margin="0 0 8px";
+  sub.textContent=(updated?updated+" existing meeting"+(updated!==1?"s":"")+" updated. ":"")+"Check what you want in the app — everything else stays out until you add it.";
+  body.append(sub);
+  const inp=document.createElement("input");inp.className="smenu-search gc-search";inp.placeholder="Search by name, date or attendee…";inp.spellcheck=false;
+  body.append(inp);
+  const list=document.createElement("div");list.className="gc-ev-list";body.append(list);
+  const tgWrap=document.createElement("div");body.append(tgWrap);
+  const toks=(s)=>(s||"").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  // each typed word must START a word in the event's name, date/time or attendee addresses ("26" finds Oct 26, not 2026)
+  const evToks=(c)=>{if(!c._toks){const ev=c.ev,p=parseGcalStart(ev);c._toks=toks([(ev.summary||""),(p.date?fmtDateDisp(p.date):""),(p.time?fmtTimeDisp(p.time):""),gcalAttendees(ev).join(" ")].join(" "));}return c._toks;};
+  function drawList(){
+    list.innerHTML="";tgWrap.innerHTML="";
+    const q=inp.value.trim().toLowerCase();
+    const terms=toks(q);
     const ng=cands.filter(c=>c.kind==="noguests");
-    const shown=cands.filter(c=>c.kind!=="noguests"||showNoGuests);
-    const h=document.createElement("div");h.className="nm-title";h.textContent="Add meetings from your calendar";body.append(h);
-    const sub=document.createElement("div");sub.className="home-sub";sub.style.margin="0 0 8px";
-    sub.textContent=(updated?updated+" existing meeting"+(updated!==1?"s":"")+" updated. ":"")+"Check what you want in the app — everything else stays out until you add it.";
-    body.append(sub);
-    const list=document.createElement("div");list.className="gc-ev-list";
+    // while searching, look through everything — including events without guests
+    const shown=terms.length?cands.filter(c=>{const t=evToks(c);return terms.every(w=>t.some(x=>x.startsWith(w)));}):cands.filter(c=>c.kind!=="noguests"||showNoGuests);
     shown.forEach(c=>{
       const ev=c.ev,p=parseGcalStart(ev),att=gcalAttendees(ev);
       const row=document.createElement("label");row.className="gc-ev";
-      const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!c.checked||(c.kind==="new"&&c.checked!==false);c.cb=cb;
-      cb.onchange=()=>{c.checked=cb.checked;};
+      const cb=document.createElement("input");cb.type="checkbox";cb.checked=c.checked;
+      cb.onchange=()=>{c.checked=cb.checked;updateApply();};
       const mid=document.createElement("div");mid.style.flex="1";mid.style.minWidth="0";
       const nm=document.createElement("div");nm.className="gc-ev-nm";nm.textContent=(ev.summary||"Untitled meeting").trim();
       if(c.kind!=="new"){const tg=document.createElement("span");tg.className="gc-ev-tag";tg.textContent=c.kind==="skipped"?"skipped earlier":"no guests";nm.append(tg);}
@@ -4151,29 +4162,28 @@ function openReviewModal(cands,updated){
       meta.textContent=[(p.date?fmtDateDisp(p.date):"No date"),(p.time?fmtTimeDisp(p.time):null),(att.length?att.length+" attendee"+(att.length!==1?"s":""):null)].filter(Boolean).join("  ·  ");
       mid.append(nm,meta);row.append(cb,mid);list.append(row);
     });
-    if(!shown.length){const e=document.createElement("div");e.style.cssText="font-size:13px;color:var(--faint);font-style:italic;padding:14px 4px";e.textContent="Nothing here — everything with guests is already in the app.";list.append(e);}
-    body.append(list);
-    if(ng.length){
+    if(!shown.length){const e=document.createElement("div");e.style.cssText="font-size:13px;color:var(--faint);font-style:italic;padding:14px 4px";e.textContent=q?("No events match “"+inp.value.trim()+"”."):"Nothing here — everything with guests is already in the app.";list.append(e);}
+    if(!terms.length&&ng.length){
       const tg=document.createElement("button");tg.className="ghost";tg.style.marginTop="10px";
       tg.textContent=showNoGuests?("Hide events without guests"):("Show "+ng.length+" event"+(ng.length!==1?"s":"")+" without guests");
-      tg.onclick=()=>{showNoGuests=!showNoGuests;draw();};
-      body.append(tg);
+      tg.onclick=()=>{showNoGuests=!showNoGuests;drawList();};
+      tgWrap.append(tg);
     }
-    const apply=()=>{
-      cands.forEach(c=>{
-        const on=!!(c.cb&&c.cb.checked)||(!c.cb&&!!c.checked);
-        if(on)importEvent(c.ev);
-        else if(c.kind==="new")addSkipped(c.ev);
-      });
-      save();renderAll();closeReview();
-    };
-    const foot=document.createElement("div");foot.className="nm-actions";
-    const close=document.createElement("button");close.className="nm-btn";close.textContent="Close";close.onclick=()=>{cands.forEach(c=>{if(c.kind==="new")addSkipped(c.ev);});save();renderAll();closeReview();};
-    const applyBtn=document.createElement("button");applyBtn.className="nm-btn primary";applyBtn.textContent="Add checked";applyBtn.onclick=apply;
-    foot.append(close,applyBtn);body.append(foot);
   }
-  draw();
+  const foot=document.createElement("div");foot.className="nm-actions";
+  const close=document.createElement("button");close.className="nm-btn";close.textContent="Close";close.onclick=()=>{cands.forEach(c=>{if(c.kind==="new")addSkipped(c.ev);});save();renderAll();closeReview();};
+  const applyBtn=document.createElement("button");applyBtn.className="nm-btn primary";
+  function updateApply(){const n=cands.filter(c=>c.checked).length;applyBtn.textContent=n?("Add "+n+" checked"):"Add checked";}
+  applyBtn.onclick=()=>{
+    cands.forEach(c=>{if(c.checked)importEvent(c.ev);else if(c.kind==="new")addSkipped(c.ev);});
+    save();renderAll();closeReview();
+  };
+  foot.append(close,applyBtn);body.append(foot);
+  inp.addEventListener("input",drawList);
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")e.preventDefault();});
+  drawList();updateApply();
   document.getElementById("gcOverlay").classList.add("open");
+  setTimeout(()=>inp.focus(),30);
 }
 
 /* ---- manually link a meeting to a calendar event ---- */
