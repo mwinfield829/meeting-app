@@ -149,7 +149,26 @@
   .rn-empty{font-family:"Archivo",sans-serif;font-size:11px;color:rgba(255,255,255,.36);padding:3px 10px 6px;cursor:pointer}
   .rn-empty:hover{color:rgba(255,255,255,.7)}
   .note-pop{position:fixed;z-index:80;width:360px;max-width:calc(100vw - 16px);max-height:calc(100vh - 24px);overflow:auto;background:#fff;border:1px solid var(--hair-strong);border-radius:12px;box-shadow:0 16px 40px rgba(22,24,29,.22);padding:14px 16px 12px;display:flex;flex-direction:column}
-  .np-name{font-family:"Newsreader",serif;font-size:19px;font-weight:600;color:var(--ink);border:0;outline:none;background:none;padding:0;width:100%}
+  .np-top{display:flex;align-items:center;gap:4px}
+  .np-name{font-family:"Newsreader",serif;font-size:19px;font-weight:600;color:var(--ink);border:0;outline:none;background:none;padding:0;flex:1;min-width:0}
+  .np-icon{flex:none;border:0;background:none;color:var(--muted);cursor:pointer;line-height:1;padding:5px;border-radius:7px;display:flex;align-items:center;justify-content:center;width:30px;height:30px}
+  .np-icon:hover{color:var(--accent-ink);background:var(--accent-soft)}
+  .np-tb{display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--hair);border-radius:9px;background:var(--paper);width:max-content;max-width:100%;flex-wrap:wrap;margin:0 0 10px}
+  .np-tbb{border:0;background:none;min-width:28px;height:26px;border-radius:6px;cursor:pointer;color:var(--ink-soft);font-family:"Newsreader",serif;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0 6px}
+  .np-tbb:hover{background:#fff;color:var(--accent-ink);box-shadow:0 0 0 1px var(--hair-strong)}
+  .np-tbb.sz{font-family:"Archivo",sans-serif;font-weight:700}
+  .np-tbsep{width:1px;height:16px;background:var(--hair-strong);margin:0 4px}
+  .np-x{flex:none;border:0;background:none;color:var(--faint);cursor:pointer;font-size:16px;line-height:1;padding:3px 6px;margin-top:2px;border-radius:6px;opacity:0;transition:opacity .12s}
+  .np-lines li:hover .np-x{opacity:.8}
+  .np-x:hover{opacity:1!important;color:#c0392b;background:#fdecea}
+  .np-line a{color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+  .note-page{max-width:860px;margin:8px auto 0;background:var(--card);border:1px solid var(--hair);border-radius:16px;box-shadow:var(--shadow);padding:26px 30px 18px}
+  .note-page .np-name{font-family:"Poppins",sans-serif;font-weight:700;font-size:28px;letter-spacing:-.01em}
+  .note-page .np-meta{margin:4px 0 16px}
+  .note-page .np-line{font-size:17.5px;line-height:1.6}
+  .note-page .np-lines{min-height:240px}
+  .note-page .np-lines li .dot{margin-top:13px}
+  .note-page .np-go{max-width:60%}
   .np-name::placeholder{color:var(--faint);font-weight:400}
   .np-meta{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);margin:3px 0 10px}
   .np-meta .ok{color:var(--accent-ink)}
@@ -927,6 +946,9 @@
   #actionsView{display:none}
   body.actions-mode #actionsView{display:block}
   body.actions-mode #agendaView,body.actions-mode #homeView,body.actions-mode #settingsView{display:none}
+  #noteView{display:none}
+  body.note-mode #noteView{display:block}
+  body.note-mode #agendaView,body.note-mode #homeView,body.note-mode #settingsView,body.note-mode #actionsView{display:none}
   .act-due{display:inline-flex;align-items:center;gap:5px;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);background:none;border:0;padding:0;cursor:pointer;white-space:nowrap;flex:none;margin-top:2px}
   .act-due:hover{color:var(--accent)}
   .act-due.empty{color:var(--faint)}
@@ -1010,6 +1032,7 @@
   <div id="homeView"></div>
   <div id="settingsView"></div>
   <div id="actionsView"></div>
+  <div id="noteView"></div>
   <div id="agendaView">
 
   <div class="ag-hero" id="agHero">
@@ -2099,12 +2122,15 @@ function bindRich(el,get,set){
   el.addEventListener("input",store);
   el.addEventListener("blur",store);
   el.addEventListener("paste",onRichPaste);
+  el.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&(e.key==="k"||e.key==="K")){e.preventDefault();richLinkAction();}});
   el.addEventListener("mouseup",()=>setTimeout(maybeShowToolbar,0));
   el.addEventListener("keyup",()=>setTimeout(maybeShowToolbar,0));
 }
 function onRichPaste(e){
   e.preventDefault();
   const cd=e.clipboardData||window.clipboardData;if(!cd)return;
+  const plain=(cd.getData("text/plain")||"").trim();const sel=window.getSelection();
+  if(/^https?:\/\/\S+$/i.test(plain)&&sel&&!sel.isCollapsed){try{document.execCommand("createLink",false,plain);}catch(_){}e.currentTarget.dispatchEvent(new Event("input"));return;}
   const html=cd.getData("text/html");
   const ins=html?sanitizeRich(html):esc(cd.getData("text/plain")).replace(/\n/g," ");
   document.execCommand("insertHTML",false,ins);
@@ -2741,6 +2767,8 @@ function applyView(){
   document.body.classList.toggle("actions-mode",actions);
   const rb=document.getElementById("railBrand");if(rb)rb.classList.toggle("home-active",home);
   const ra=document.getElementById("railActions");if(ra)ra.classList.toggle("active",actions);
+  document.body.classList.toggle("note-mode",view==="note");
+  noteLeftPage();
 }
 function goHome(){view="home";applyView();applyBrand();advanceVerse();renderHome();renderRail();}
 function openSettings(){view="settings";applyView();applyBrand();updateStabs();renderSettings();}
@@ -2830,7 +2858,7 @@ function renderNotesRail(){
   const list=document.createElement("div");list.className="rn-list";w.append(list);
   if(!notes.length){const e=document.createElement("div");e.className="rn-empty";e.textContent="Jot something down — add it to an agenda later";e.onclick=newNote;list.append(e);return;}
   notes.forEach(n=>{
-    const it=document.createElement("div");it.className="rn-item"+(_noteOpen===n.id?" open":"");it.dataset.id=n.id;
+    const it=document.createElement("div");it.className="rn-item"+((_noteOpen===n.id||(view==="note"&&_notePageId===n.id))?" open":"");it.dataset.id=n.id;
     const tx=document.createElement("div");tx.className="rn-txt";
     const nm=document.createElement("div");nm.className="rn-name"+((n.name||"").trim()?"":" untitled");nm.textContent=(n.name||"").trim()||"Untitled note";
     const mt=document.createElement("div");mt.className="rn-meta";
@@ -2841,7 +2869,7 @@ function renderNotesRail(){
     const tgt=noteDefaultTarget();go.title=tgt?"Add as a topic to "+(tgt.name||"this meeting"):"Add as a topic to a meeting…";
     go.onclick=(e)=>{e.stopPropagation();const t=noteDefaultTarget();if(t)addNoteToSeries(n,t);else openNoteTargetMenu(n,go);};
     it.append(tx,go);
-    it.onclick=()=>{if(_noteOpen===n.id)closeNotePop();else openNotePop(n.id);};
+    it.onclick=()=>{if(view==="note"){if(_notePageId!==n.id)openNotePage(n.id);}else if(_noteOpen===n.id)closeNotePop();else openNotePop(n.id);};
     list.append(it);
   });
 }
@@ -2912,8 +2940,10 @@ function openNoteTargetMenu(n,anchor,idx){
   setTimeout(()=>{document.addEventListener("click",sOutside);document.addEventListener("keydown",sEsc);inp.focus();},0);
 }
 function refreshNoteMeta(){
-  const pop=document.getElementById("notePop");if(!pop)return;const n=noteById(_noteOpen);if(!n)return;
-  const mt=pop.querySelector(".np-meta");if(!mt)return;
+  const pop=document.getElementById("notePop");
+  const host=pop||(view==="note"?document.getElementById("noteView"):null);if(!host)return;
+  const n=noteById(pop?_noteOpen:_notePageId);if(!n)return;
+  const mt=host.querySelector(".np-meta");if(!mt)return;
   const adds=n.adds.map(a=>(a.bullet?"“"+esc(a.bullet.length>28?a.bullet.slice(0,27)+"…":a.bullet)+"” → ":"")+esc(a.name)+" ("+esc(noteStamp(a.at))+")");
   mt.innerHTML="Edited "+esc(noteStamp(n.upd))+(adds.length?' · <span class="ok">Added to '+adds.join(", ")+'</span>':'');
 }
@@ -2925,25 +2955,93 @@ function closeNotePop(){
   save();renderNotesRail();
 }
 function noteOutside(e){if(e.target.closest("#notePop,#smenu,#fmtbar,#toast,.rn-item,.rn-add"))return;closeNotePop();}
-function noteEsc(e){if(e.key!=="Escape")return;if(document.getElementById("smenu"))return;const bar=document.getElementById("fmtbar");if(bar&&bar.style.display==="flex")return;closeNotePop();}
+function noteEsc(e){if(e.key!=="Escape"||e.target.id==="fbUrl")return;if(document.getElementById("smenu"))return;const bar=document.getElementById("fmtbar");if(bar&&bar.style.display==="flex")return;closeNotePop();}
 function openNotePop(id,focusName){
   const n=noteById(id);if(!n)return;
+  if(view==="note"){openNotePage(id,focusName);return;}   // the full-page editor is already up — swap notes there
   if(document.getElementById("notePop")){const pn=_noteOpen;_noteOpen=null;const pop0=document.getElementById("notePop");pop0.remove();const p=noteById(pn);if(p&&noteIsEmpty(p)&&!p.adds.length&&p!==n)DB.notes=DB.notes.filter(x=>x!==p);}
   _noteOpen=id;renderNotesRail();
   const pop=document.createElement("div");pop.className="note-pop";pop.id="notePop";
+  document.body.append(pop);
+  function place(){
+    const item=document.querySelector('.rn-item[data-id="'+n.id+'"]'),rail=document.getElementById("rail");
+    const rr=rail?rail.getBoundingClientRect():{right:0};
+    const ir=item?item.getBoundingClientRect():{top:80};
+    const h=pop.offsetHeight,wd=pop.offsetWidth;
+    pop.style.left=Math.max(8,Math.min(rr.right+10,window.innerWidth-wd-8))+"px";
+    pop.style.top=Math.max(12,Math.min(ir.top-14,window.innerHeight-h-12))+"px";
+  }
+  const ed=buildNoteEditor(n,pop,{mode:"pop",onLayout:place,onDeleted:()=>closeNotePop()});
+  setTimeout(()=>{if(focusName||!(n.name||"").trim())ed.name.focus();else ed.focusLine(n.lines.length-1,"end");
+    document.addEventListener("mousedown",noteOutside,true);document.addEventListener("keydown",noteEsc);},0);
+}
+/* full-page note editor in the main column */
+let _notePageId=null,_notePrevView="home";
+function openNotePage(id,focusName){
+  const n=noteById(id);if(!n)return;
+  if(document.getElementById("notePop")){const pop=document.getElementById("notePop");pop.remove();document.removeEventListener("mousedown",noteOutside,true);document.removeEventListener("keydown",noteEsc);_noteOpen=null;}
+  if(view!=="note"){_notePrevView=view;}
+  else{const p=noteById(_notePageId);if(p&&p!==n&&noteIsEmpty(p)&&!p.adds.length)DB.notes=DB.notes.filter(x=>x!==p);}
+  _notePageId=id;view="note";applyView();applyBrand();
+  const w=document.getElementById("noteView");w.innerHTML="";
+  const card=document.createElement("div");card.className="note-page";w.append(card);
+  const ed=buildNoteEditor(n,card,{mode:"page",onDeleted:()=>{_notePageId=null;leaveNotePage();}});
+  renderNotesRail();window.scrollTo(0,0);
+  setTimeout(()=>{if(focusName||!(n.name||"").trim())ed.name.focus();else ed.focusLine(n.lines.length-1,"end");},0);
+}
+function leaveNotePage(){
+  const v=_notePrevView||"home";
+  if(v==="agenda")openMeeting(DB.activeId);else if(v==="actions")goActions();else if(v==="settings")openSettings();else goHome();
+}
+// called from applyView whenever the page changes: tidy up a note page we just left
+function noteLeftPage(){
+  if(view==="note"||!_notePageId)return;
+  const n=noteById(_notePageId);_notePageId=null;
+  if(n&&noteIsEmpty(n)&&!n.adds.length)DB.notes=DB.notes.filter(x=>x!==n);
+  const w=document.getElementById("noteView");if(w)w.innerHTML="";
+  save();renderNotesRail();
+}
+const ICO_EXPAND='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
+const ICO_SHRINK='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
+const ICO_LINK='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+// the note editor itself — shared by the rail popover and the full page
+function buildNoteEditor(n,host,opts){
+  const page=opts.mode==="page";const layout=opts.onLayout||function(){};
   const touch=()=>{n.upd=Date.now();queueNotesRail();};
+  const top=document.createElement("div");top.className="np-top";
   const name=document.createElement("input");name.className="np-name";name.placeholder="Name this note";name.value=n.name||"";name.spellcheck=true;
   name.addEventListener("input",()=>{n.name=name.value;touch();save();});
   name.addEventListener("keydown",e=>{if(e.key==="Enter"||(e.key==="ArrowDown")){e.preventDefault();focusLine(0,"end");}});
+  const sw=document.createElement("button");sw.className="np-icon";
+  if(page){sw.innerHTML=ICO_SHRINK;sw.title="Close the full page and open this note beside the sidebar";sw.onclick=()=>{const id=n.id;leaveNotePage();setTimeout(()=>openNotePop(id),0);};}
+  else{sw.innerHTML=ICO_EXPAND;sw.title="Open in the full page";sw.onclick=()=>openNotePage(n.id);}
+  top.append(name,sw);
+  if(page){const x=document.createElement("button");x.className="np-icon";x.innerHTML="&times;";x.style.fontSize="20px";x.title="Close";x.onclick=leaveNotePage;top.append(x);}
   const meta=document.createElement("div");meta.className="np-meta";
+  // a visible toolbar so formatting and links are one click away (the floating bar still works on selection)
+  const tb=document.createElement("div");tb.className="np-tb";
+  const tbtn=(html,title,fn,cls)=>{const b=document.createElement("button");b.className="np-tbb"+(cls?" "+cls:"");b.innerHTML=html;b.title=title;b.addEventListener("mousedown",e=>e.preventDefault());b.onclick=()=>{if(!inThis())focusLine(n.lines.length-1,"end");fn();};tb.append(b);return b;};
+  const inThis=()=>{const r=currentRich();return !!(r&&ul.contains(r));};
+  tbtn("<b>B</b>","Bold (⌘B)",()=>{tbEl=currentRich();fmtCmd("bold");});
+  tbtn("<i>I</i>","Italic (⌘I)",()=>{tbEl=currentRich();fmtCmd("italic");});
+  tbtn("<s>S</s>","Strikethrough",()=>{tbEl=currentRich();fmtCmd("strikeThrough");});
+  tbtn(ICO_LINK,"Add a link (⌘K)",()=>richLinkAction());
+  const sep=document.createElement("span");sep.className="np-tbsep";tb.append(sep);
+  tbtn('<span style="font-size:11px">A</span>',"Small text",()=>{tbEl=currentRich();applySize("s");},"sz");
+  tbtn('<span style="font-size:13.5px">A</span>',"Normal text",()=>{tbEl=currentRich();applySize("n");},"sz");
+  tbtn('<span style="font-size:17px">A</span>',"Large text",()=>{tbEl=currentRich();applySize("l");},"sz");
   const ul=document.createElement("ul");ul.className="np-lines";
   function caretAtStart(el){const sel=window.getSelection();if(!sel.rangeCount||!sel.isCollapsed)return false;const r=document.createRange();r.selectNodeContents(el);r.setEnd(sel.anchorNode,sel.anchorOffset);return r.toString().length===0;}
   function caretAtEnd(el){const sel=window.getSelection();if(!sel.rangeCount||!sel.isCollapsed)return false;const r=document.createRange();r.selectNodeContents(el);r.setStart(sel.anchorNode,sel.anchorOffset);return r.toString().length===0;}
   function focusLine(i,where){const el=ul.querySelectorAll(".np-line")[i];if(!el)return;el.focus();if(where==="start"){try{const r=document.createRange();r.selectNodeContents(el);r.collapse(true);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(_){}}else placeCaretEnd(el);}
+  function deleteLine(i){
+    if(n.lines.length<=1){n.lines[0]={t:"",lvl:0};}else n.lines.splice(i,1);
+    touch();save();redraw(Math.min(i,n.lines.length-1),"end");
+  }
   function redraw(fi,where){
     ul.innerHTML="";
     n.lines.forEach((l,i)=>{
-      const li=document.createElement("li");li.style.marginLeft=((l.lvl|0)*20)+"px";
+      const li=document.createElement("li");li.style.marginLeft=((l.lvl|0)*(page?24:20))+"px";
       const dot=document.createElement("span");dot.className="dot";
       const ed=document.createElement("div");ed.className="np-line";ed.contentEditable=true;ed.dataset.ph=i===0&&n.lines.length===1?"Start typing…":"";
       bindRich(ed,()=>l.t,(html)=>{l.t=html;touch();});
@@ -2960,7 +3058,8 @@ function openNotePop(id,focusName){
         touch();save();redraw(last,"end");
       },true);
       ed.addEventListener("keydown",e=>{
-        if(e.key==="Tab"){e.preventDefault();l.lvl=Math.max(0,Math.min(MAX_LVL,(l.lvl|0)+(e.shiftKey?-1:1)));save();redraw(i,"end");}
+        if(e.key==="Backspace"&&e.shiftKey&&(e.metaKey||e.ctrlKey)){e.preventDefault();deleteLine(i);}
+        else if(e.key==="Tab"){e.preventDefault();l.lvl=Math.max(0,Math.min(MAX_LVL,(l.lvl|0)+(e.shiftKey?-1:1)));save();redraw(i,"end");}
         else if(e.key==="Enter"){
           e.preventDefault();
           // split at the caret: the text after it moves to a new bullet below
@@ -2982,17 +3081,20 @@ function openNotePop(id,focusName){
       snd.onclick=(e)=>{e.stopPropagation();const t=noteDefaultTarget();if(t)addNoteToSeries(n,t,i);else openNoteTargetMenu(n,snd,i);};
       snd.addEventListener("mouseenter",()=>{const k=subPointBlockLen(n.lines,i);[...ul.children].slice(i,i+k).forEach(x=>x.classList.add("np-blk"));});
       snd.addEventListener("mouseleave",()=>ul.querySelectorAll(".np-blk").forEach(x=>x.classList.remove("np-blk")));
-      li.append(dot,ed,snd);ul.append(li);
+      const x=document.createElement("button");x.className="np-x";x.innerHTML="&times;";x.title="Delete this line (⌘⇧⌫)";
+      x.addEventListener("mousedown",e=>e.preventDefault());
+      x.onclick=(e)=>{e.stopPropagation();deleteLine(i);};
+      li.append(dot,ed,snd,x);ul.append(li);
     });
     if(fi!=null)setTimeout(()=>focusLine(fi,where),0);
-    place();
+    layout();
   }
-  const hint=document.createElement("div");hint.className="np-hint";hint.textContent="Enter for a new bullet · Tab indents, Shift+Tab outdents · select text to format · → on a bullet adds just that bullet and its sub-points";
+  const hint=document.createElement("div");hint.className="np-hint";hint.textContent="Enter for a new bullet · Tab indents, Shift+Tab outdents · ⌘K adds a link · → adds one bullet and its sub-points · × deletes a line";
   const foot=document.createElement("div");foot.className="np-foot";
-  const del=document.createElement("button");del.className="np-del";del.textContent="Delete";
+  const del=document.createElement("button");del.className="np-del";del.textContent="Delete note";
   del.onclick=()=>{
     const idx=DB.notes.indexOf(n);DB.notes=DB.notes.filter(x=>x!==n);
-    closeNotePop();
+    opts.onDeleted();
     if(noteIsEmpty(n))return;
     showToast("Deleted <b>"+esc((n.name||"").trim()||"Untitled note")+"</b>",{actionLabel:"Undo",onAction:()=>{DB.notes.splice(Math.min(idx,DB.notes.length),0,n);save();renderNotesRail();}});
   };
@@ -3005,19 +3107,21 @@ function openNotePop(id,focusName){
   go.append(main);
   if(tgt){const pk=document.createElement("button");pk.className="np-pick";pk.innerHTML="▾";pk.title="Add to a different meeting…";pk.onclick=(e)=>{e.stopPropagation();openNoteTargetMenu(n,pk);};go.append(pk);}
   foot.append(del,go);
-  pop.append(name,meta,ul,hint,foot);
-  document.body.append(pop);
-  function place(){
-    const item=document.querySelector('.rn-item[data-id="'+n.id+'"]'),rail=document.getElementById("rail");
-    const rr=rail?rail.getBoundingClientRect():{right:0};
-    const ir=item?item.getBoundingClientRect():{top:80};
-    const h=pop.offsetHeight,wd=pop.offsetWidth;
-    pop.style.left=Math.max(8,Math.min(rr.right+10,window.innerWidth-wd-8))+"px";
-    pop.style.top=Math.max(12,Math.min(ir.top-14,window.innerHeight-h-12))+"px";
-  }
+  host.append(top,meta,tb,ul,hint,foot);
   redraw(null);refreshNoteMeta();
-  setTimeout(()=>{if(focusName||!(n.name||"").trim())name.focus();else focusLine(n.lines.length-1,"end");
-    document.addEventListener("mousedown",noteOutside,true);document.addEventListener("keydown",noteEsc);},0);
+  return {name,focusLine};
+}
+// toolbar link button / ⌘K: wrap the selection in a link, or insert a new link at the caret
+function richLinkAction(){
+  const rich=currentRich();if(!rich)return;tbEl=rich;
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount&&!sel.isCollapsed){maybeShowToolbar();openLinkInput();return;}
+  const at=(sel&&sel.rangeCount)?sel.getRangeAt(0).cloneRange():null;
+  let url=(prompt("Link address")||"").trim();if(!url)return;
+  if(!/^https?:\/\//i.test(url))url="https://"+url;
+  rich.focus();if(at){const s2=window.getSelection();s2.removeAllRanges();s2.addRange(at);}
+  try{document.execCommand("insertHTML",false,'<a href="'+escAttr(url)+'">'+esc(url)+'</a>&nbsp;');}catch(e){}
+  rich.dispatchEvent(new Event("input"));
 }
 function closeSMenu(){const m=document.getElementById("smenu");if(m)m.remove();document.removeEventListener("click",sOutside);document.removeEventListener("keydown",sEsc);}
 function sOutside(e){if(!e.target.closest("#smenu"))closeSMenu();}
