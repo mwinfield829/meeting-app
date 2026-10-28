@@ -907,6 +907,7 @@
   .p-point{background:#EEF1F5;color:#4A5568}
   .p-action{background:#F3E8F0;color:#7A2A60}
   .p-parked{background:#F1EFE8;color:#5F5E5A}
+  .p-note{background:#FAEEDA;color:#633806}
   .hist-tools{padding:12px 15px;border-bottom:1px solid rgba(255,255,255,.1);flex:none}
   .hist-sbar{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:9px;padding:8px 11px}
   .hist-sbar svg{color:rgba(255,255,255,.5);flex:none}
@@ -2619,7 +2620,7 @@ window.addEventListener("afterprint",()=>{document.body.classList.remove("printi
 
 /* ================= search across agendas ================= */
 let histScope="client",histSearchQuery="";
-function pillClass(sec){return (sec==="Topic"||sec==="Title"||sec==="Purpose")?"p-topic":sec==="Sub-point"?"p-point":sec==="Action"?"p-action":sec==="Parked"?"p-parked":"p-point";}
+function pillClass(sec){return (sec==="Note"||sec==="Note text")?"p-note":(sec==="Topic"||sec==="Title"||sec==="Purpose")?"p-topic":sec==="Sub-point"?"p-point":sec==="Action"?"p-action":sec==="Parked"?"p-parked":"p-point";}
 function hlText(plain,q){if(!q)return esc(plain);let out="",pos=0;const low=plain.toLowerCase(),ql=q.length;while(true){const j=low.indexOf(q,pos);if(j<0){out+=esc(plain.slice(pos));break;}out+=esc(plain.slice(pos,j))+'<span class="hl">'+esc(plain.slice(j,j+ql))+'</span>';pos=j+ql;}return out;}
 function shortWhen(w){return w||"";}
 function searchAgendas(query,seriesList){
@@ -2642,17 +2643,39 @@ function searchAgendas(query,seriesList){
   });
   return groups;
 }
+// notes match on their name or any bullet; one hit per note so a busy note doesn't flood the list
+function searchNotes(query){
+  const q=(query||"").trim().toLowerCase();if(!q)return null;
+  const hits=[];
+  (DB.notes||[]).slice().sort((a,b)=>(b.upd||0)-(a.upd||0)).forEach(n=>{
+    const name=(n.name||"").trim();
+    if(name.toLowerCase().includes(q)){hits.push({section:"Note",snippet:name,when:noteStamp(n.upd),noteId:n.id});return;}
+    const line=n.lines.map(l=>rtext(l.t)).find(t=>t.toLowerCase().includes(q));
+    if(line)hits.push({section:"Note text",snippet:(name?name+" — ":"")+line,when:noteStamp(n.upd),noteId:n.id});
+  });
+  return hits.length?{notes:true,hits}:null;
+}
+function openNoteFromSearch(id){
+  closeSearch();
+  if(DB.ui.collapsed){DB.ui.collapsed=false;applyCollapse();}
+  DB.ui.sec.notes=false;
+  const n=noteById(id);if(!n)return;
+  const ix=DB.notes.slice().sort((a,b)=>(b.upd||0)-(a.upd||0)).indexOf(n);
+  if(ix>=NOTES_SHOWN)DB.ui.notesAll=true;
+  save();closeNotePop();openNotePop(id);
+}
 function buildResults(container,groups,q,opener){
   container.innerHTML="";
   const ql=(q||"").trim().toLowerCase();
   const total=groups.reduce((n,g)=>n+g.hits.length,0);
+  const mtg=groups.filter(g=>!g.notes).length,noteGrp=groups.find(g=>g.notes);
   const count=document.createElement("div");count.className="sr-count";
-  count.textContent=total?(total+" match"+(total!==1?"es":"")+" · "+groups.length+" meeting"+(groups.length!==1?"s":"")):"No matches";
+  count.textContent=total?([total+" match"+(total!==1?"es":""),mtg?mtg+" meeting"+(mtg!==1?"s":""):null,noteGrp?noteGrp.hits.length+" note"+(noteGrp.hits.length!==1?"s":""):null].filter(Boolean).join(" · ")):"No matches";
   container.append(count);
   groups.forEach(g=>{
     const gh=document.createElement("div");gh.className="sr-grp";
-    const dot=document.createElement("span");dot.className="sr-dot";dot.style.background=cardColor(g.series);
-    const nm=document.createElement("span");nm.className="sr-name";nm.textContent=g.series.name||"Untitled meeting";
+    const dot=document.createElement("span");dot.className="sr-dot";dot.style.background=g.notes?"#EF9F27":cardColor(g.series);
+    const nm=document.createElement("span");nm.className="sr-name";nm.textContent=g.notes?"Notes":(g.series.name||"Untitled meeting");
     const gc=document.createElement("span");gc.className="sr-gc";gc.textContent=g.hits.length;
     gh.append(dot,nm,gc);container.append(gh);
     g.hits.forEach(h=>{
@@ -2660,7 +2683,7 @@ function buildResults(container,groups,q,opener){
       const pill=document.createElement("span");pill.className="sr-pill "+pillClass(h.section);pill.textContent=h.section;
       const snip=document.createElement("span");snip.className="sr-snip";snip.innerHTML=hlText(h.snippet,ql);
       const date=document.createElement("span");date.className="sr-date";date.textContent=shortWhen(h.when);
-      row.append(pill,snip,date);row.onclick=()=>opener(g.series,h);
+      row.append(pill,snip,date);row.onclick=()=>g.notes?openNoteFromSearch(h.noteId):opener(g.series,h);
       container.append(row);
     });
   });
@@ -2681,8 +2704,9 @@ function closeSearch(){const o=document.getElementById("searchOverlay");if(o)o.c
 function runGlobalSearch(){
   const res=document.getElementById("searchResults"),cnt=document.getElementById("searchCount");if(!res)return;
   const q=document.getElementById("searchInput").value;
-  if(q.trim().length<2){res.innerHTML='<div class="sr-hint">Search every agenda — topics, sub-points, actions, parked items, and people.</div>';cnt.textContent="";return;}
+  if(q.trim().length<2){res.innerHTML='<div class="sr-hint">Search every agenda and note — topics, sub-points, actions, parked items, people, and notes.</div>';cnt.textContent="";return;}
   const groups=searchAgendas(q,DB.series);
+  const nh=searchNotes(q);if(nh)groups.unshift(nh);
   cnt.textContent=groups.reduce((n,g)=>n+g.hits.length,0)+" matches";
   buildResults(res,groups,q,openSearchHit);
 }
