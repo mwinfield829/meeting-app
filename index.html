@@ -128,6 +128,50 @@
   .stab:hover{background:rgba(255,255,255,.08)}
   .stab.active{background:rgba(255,255,255,.12);color:#fff;box-shadow:inset 3px 0 0 var(--eyebrow)}
 
+  /* ---- notes (rail list + popover editor) ---- */
+  #railNotes{margin:2px 0 4px}
+  .rn-head{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 9px;border-radius:8px}
+  .rn-head:hover{background:rgba(255,255,255,.06)}
+  .rn-head .lab{font-family:"Archivo",sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:rgba(255,255,255,.32)}
+  .rn-head:hover .lab{color:rgba(255,255,255,.6)}
+  .rn-head.sec-collapsed .chev{transform:rotate(-90deg)}
+  .rn-add{margin-left:auto;border:0;background:none;color:rgba(255,255,255,.5);font-size:16px;line-height:1;cursor:pointer;padding:1px 6px;border-radius:6px}
+  .rn-add:hover{color:#fff;background:rgba(255,255,255,.1)}
+  .rn-item{display:flex;align-items:center;gap:6px;border-radius:8px;padding:5px 6px 5px 10px;cursor:pointer;margin:1px 0}
+  .rn-item:hover{background:rgba(255,255,255,.08)}
+  .rn-item.open{background:rgba(255,255,255,.12);box-shadow:inset 3px 0 0 var(--eyebrow);border-radius:0 8px 8px 0}
+  .rn-txt{flex:1;min-width:0}
+  .rn-name{font-family:"Newsreader",serif;font-size:14px;color:rgba(255,255,255,.74);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rn-item.open .rn-name{color:#fff}
+  .rn-name.untitled{font-style:italic;color:rgba(255,255,255,.45)}
+  .rn-meta{font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:rgba(255,255,255,.36);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rn-meta .ok{color:var(--eyebrow)}
+  .rn-send{flex:none;border:0;background:none;color:var(--eyebrow);cursor:pointer;font-size:14px;line-height:1;padding:5px 6px;border-radius:6px;opacity:0;transition:.12s}
+  .rn-item:hover .rn-send,.rn-item.open .rn-send{opacity:1}
+  .rn-send:hover{background:rgba(255,255,255,.12)}
+  .rn-more{display:block;border:0;background:none;font-family:"Archivo",sans-serif;font-size:11px;font-weight:600;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 10px}
+  .rn-more:hover{color:#fff}
+  .rn-empty{font-family:"Archivo",sans-serif;font-size:11px;color:rgba(255,255,255,.36);padding:3px 10px 6px;cursor:pointer}
+  .rn-empty:hover{color:rgba(255,255,255,.7)}
+  .note-pop{position:fixed;z-index:80;width:360px;max-width:calc(100vw - 16px);max-height:calc(100vh - 24px);overflow:auto;background:#fff;border:1px solid var(--hair-strong);border-radius:12px;box-shadow:0 16px 40px rgba(22,24,29,.22);padding:14px 16px 12px;display:flex;flex-direction:column}
+  .np-name{font-family:"Newsreader",serif;font-size:19px;font-weight:600;color:var(--ink);border:0;outline:none;background:none;padding:0;width:100%}
+  .np-name::placeholder{color:var(--faint);font-weight:400}
+  .np-meta{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);margin:3px 0 10px}
+  .np-meta .ok{color:var(--accent-ink)}
+  .np-lines{list-style:none;margin:0;padding:0;min-height:60px}
+  .np-lines li{display:flex;align-items:flex-start;gap:8px;padding:1px 0}
+  .np-lines li .dot{flex:none;width:5px;height:5px;border-radius:50%;background:var(--muted);margin-top:11px}
+  .np-line{flex:1;min-width:0;font-family:"Newsreader",serif;font-size:15.5px;line-height:1.55;color:var(--ink);outline:none;padding:1px 0;word-break:break-word}
+  .np-line:empty:before{content:attr(data-ph);color:var(--faint)}
+  .np-hint{font-family:"Archivo",sans-serif;font-size:10.5px;color:var(--faint);margin:10px 0 0}
+  .np-foot{display:flex;align-items:center;gap:8px;border-top:1px solid var(--hair);margin-top:12px;padding-top:10px}
+  .np-del{border:0;background:none;font-family:"Archivo",sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;padding:6px 8px;border-radius:7px}
+  .np-del:hover{color:#c0392b;background:#fdecea}
+  .np-go{margin-left:auto;display:flex;border-radius:8px;overflow:hidden;max-width:72%}
+  .np-go button{border:0;background:var(--accent);color:#fff;font-family:"Archivo",sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:7px 11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .np-go button:hover{background:var(--accent-ink)}
+  .np-go .np-pick{border-left:1px solid rgba(255,255,255,.3);padding:7px 9px;flex:none}
+
   /* ---- bold home hero ---- */
   .hh{border-radius:16px;padding:26px 28px;background:linear-gradient(120deg,var(--g1),var(--g2));position:relative;overflow:hidden;margin-bottom:22px}
   .hh:after{content:"";position:absolute;right:-70px;top:-80px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,var(--eyebrow),transparent 68%);opacity:.22;pointer-events:none}
@@ -943,6 +987,7 @@
       <div class="rail-brand" id="railBrand" role="button" title="Home"><span class="logo" id="brandLogo"></span><b id="brandName">Exec Agenda</b><button class="rail-toggle" id="railToggle" title="Collapse" aria-label="Collapse meetings">&lsaquo;</button></div>
       <div id="railSearch" class="rail-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search</div>
       <div id="railActions" class="rail-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Actions <span id="railActionsCount" class="rail-badge" style="display:none"></span></div>
+      <div id="railNotes"></div>
       <div class="rail-mlab" id="railMeetingsLab">Meetings</div>
       <div id="seriesList"></div>
       <button class="add-series" id="addSeries"><span style="font-size:14px;font-weight:700">+</span> New meeting</button>
@@ -1200,6 +1245,8 @@ function load(){
   if(!Array.isArray(DB.gcalSkipped))DB.gcalSkipped=[];
   if(!Array.isArray(DB.standaloneActions))DB.standaloneActions=[];
   if(!Array.isArray(DB.actionTrash))DB.actionTrash=[];
+  if(!Array.isArray(DB.notes))DB.notes=[];
+  DB.notes.forEach(n=>{if(typeof n.name!=="string")n.name="";if(!Array.isArray(n.lines)||!n.lines.length)n.lines=[{t:"",lvl:0}];if(!Array.isArray(n.adds))n.adds=[];if(!n.upd)n.upd=n.at||Date.now();});
   if(!Array.isArray(DB.clients))DB.clients=[];
   DB.clients.forEach(c=>{if(!Array.isArray(c.colors))c.colors=[];c.colors=c.colors.filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);if(typeof c.archived!=="boolean")c.archived=false;if(typeof c.internalDefault!=="boolean")c.internalDefault=false;});
   if(!Array.isArray(DB.series)||!DB.series.length){const s=newSeries("Meeting 1",true);DB.series=[s];DB.activeId=s.id;}
@@ -2701,6 +2748,7 @@ function secOpen(key){return !(DB.ui.sec&&DB.ui.sec[key]);}
 function toggleSec(key){DB.ui.sec[key]=secOpen(key);save();renderRail();}
 function renderRail(){
   updateActionsNav();
+  renderNotesRail();
   const w=document.getElementById("seriesList");if(!w)return;w.innerHTML="";
   [["client","Client"],["internal","Internal"]].forEach(cat=>{
     const cid=cat[0];
@@ -2727,6 +2775,210 @@ function renderRail(){
     w.append(cWrap);
   });
   const ml=document.getElementById("railMeetingsLab");if(ml)ml.style.display=w.children.length?"":"none";
+}
+
+/* ---- notes: quick capture in the rail, turned into agenda topics later ---- */
+const NOTES_SHOWN=5;
+let _noteOpen=null,_noteRailTimer=null;
+function noteById(id){return (DB.notes||[]).find(n=>n.id===id)||null;}
+function noteIsEmpty(n){return !(n.name||"").trim()&&!n.lines.some(l=>rtext(l.t));}
+function noteStamp(ms){
+  const d=new Date(ms||0),now=new Date();
+  if(d.toDateString()===now.toDateString())return "Today "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+}
+function renderNotesRail(){
+  const w=document.getElementById("railNotes");if(!w)return;w.innerHTML="";
+  const notes=(DB.notes||[]).slice().sort((a,b)=>(b.upd||0)-(a.upd||0));
+  const open=secOpen("notes");
+  const head=document.createElement("div");head.className="rn-head"+(open?"":" sec-collapsed");
+  head.innerHTML='<span class="chev">▾</span><span class="lab">Notes</span>'+(notes.length?'<span class="rail-cnt" style="margin-left:0">'+notes.length+'</span>':'');
+  const add=document.createElement("button");add.className="rn-add";add.textContent="+";add.title="New note";
+  add.onclick=(e)=>{e.stopPropagation();newNote();};
+  head.append(add);head.onclick=()=>toggleSec("notes");
+  w.append(head);
+  if(!open)return;
+  if(!notes.length){const e=document.createElement("div");e.className="rn-empty";e.textContent="Jot something down — add it to an agenda later";e.onclick=newNote;w.append(e);return;}
+  const all=!!DB.ui.notesAll;
+  notes.slice(0,all?notes.length:NOTES_SHOWN).forEach(n=>{
+    const it=document.createElement("div");it.className="rn-item"+(_noteOpen===n.id?" open":"");it.dataset.id=n.id;
+    const tx=document.createElement("div");tx.className="rn-txt";
+    const nm=document.createElement("div");nm.className="rn-name"+((n.name||"").trim()?"":" untitled");nm.textContent=(n.name||"").trim()||"Untitled note";
+    const mt=document.createElement("div");mt.className="rn-meta";
+    const last=n.adds[n.adds.length-1];
+    mt.innerHTML=esc(noteStamp(n.upd))+(last?' · <span class="ok">✓ '+esc(last.name||"agenda")+'</span>':'');
+    tx.append(nm,mt);
+    const go=document.createElement("button");go.className="rn-send";go.innerHTML="→";
+    const tgt=noteDefaultTarget();go.title=tgt?"Add as a topic to "+(tgt.name||"this meeting"):"Add as a topic to a meeting…";
+    go.onclick=(e)=>{e.stopPropagation();const t=noteDefaultTarget();if(t)addNoteToSeries(n,t);else openNoteTargetMenu(n,go);};
+    it.append(tx,go);
+    it.onclick=()=>{if(_noteOpen===n.id)closeNotePop();else openNotePop(n.id);};
+    w.append(it);
+  });
+  if(notes.length>NOTES_SHOWN){
+    const m=document.createElement("button");m.className="rn-more";m.textContent=all?"Show fewer":"Show all "+notes.length;
+    m.onclick=()=>{DB.ui.notesAll=!all;save();renderNotesRail();};
+    w.append(m);
+  }
+}
+function queueNotesRail(){clearTimeout(_noteRailTimer);_noteRailTimer=setTimeout(renderNotesRail,400);}
+function newNote(){
+  const n={id:uid(),name:"",lines:[{t:"",lvl:0}],at:Date.now(),upd:Date.now(),adds:[]};
+  DB.notes.push(n);DB.ui.sec.notes=false;save();
+  closeNotePop();renderNotesRail();openNotePop(n.id,true);
+}
+// the open agenda is the obvious place to drop a note; anywhere else we ask
+function noteDefaultTarget(){if(view!=="agenda")return null;const s=activeSeries();return (s&&!s.archived)?s:null;}
+function noteToTopic(n){
+  const lines=n.lines.filter(l=>rtext(l.t)).map(l=>({t:l.t,lvl:Math.max(0,Math.min(MAX_LVL,l.lvl|0)),keep:false}));
+  let title=esc((n.name||"").trim());
+  if(!title&&lines.length){title=lines.shift().t;const base=lines.length?Math.min(...lines.map(l=>l.lvl)):0;lines.forEach(l=>l.lvl-=base);}
+  return {id:uid(),title:title,points:lines,standing:false,pushed:false,collapsed:false};
+}
+function addNoteToSeries(n,s){
+  if(noteIsEmpty(n)){showToast("This note is empty — give it a name or some text first");return;}
+  const ag=s.cur;const prev=ag.topics.slice();const tp=noteToTopic(n);
+  ag.topics=ag.topics.some(topicHasContent)?ag.topics.concat([tp]):[tp];
+  const rec={sid:s.id,name:s.name||"Untitled meeting",at:Date.now()};n.adds.push(rec);
+  save();
+  if(S===ag&&view==="agenda"){renderTopics();const boxes=document.querySelectorAll("#topics .topicbox");const b=boxes[boxes.length-1];if(b){b.classList.add("glow");b.scrollIntoView({block:"nearest",behavior:"smooth"});}}
+  if(view==="home")renderHome();
+  renderNotesRail();refreshNoteMeta();
+  showToast("Added <b>"+esc(rtext(tp.title)||"note")+"</b> to <b>"+esc(rec.name)+"</b> as a topic",{actionLabel:"Undo",onAction:()=>{
+    ag.topics=prev;n.adds=n.adds.filter(x=>x!==rec);save();
+    if(S===ag&&view==="agenda")renderTopics();if(view==="home")renderHome();renderNotesRail();refreshNoteMeta();
+  }});
+}
+function openNoteTargetMenu(n,anchor){
+  closeSMenu();
+  const m=document.createElement("div");m.className="smenu";m.id="smenu";m.style.minWidth="240px";
+  const lab=document.createElement("div");lab.className="smenu-none";lab.style.fontStyle="normal";lab.textContent="Add as a topic to…";m.append(lab);
+  const inp=document.createElement("input");inp.className="smenu-search";inp.placeholder="Search meetings…";inp.spellcheck=false;inp.onclick=(e)=>e.stopPropagation();
+  const list=document.createElement("div");m.append(inp,list);
+  const pool=DB.series.filter(s=>!s.archived).slice().sort(byNextDate);
+  function draw(){
+    list.innerHTML="";const q=inp.value.trim().toLowerCase();
+    const hits=pool.filter(t=>{if(!q)return true;const cl=t.clientId?clientById(t.clientId):null;return (t.name||"").toLowerCase().includes(q)||(cl&&(cl.name||"").toLowerCase().includes(q));});
+    if(!hits.length){const e=document.createElement("div");e.className="smenu-none";e.textContent="No meetings match";list.append(e);return;}
+    hits.forEach(t=>{
+      const cl=t.clientId?clientById(t.clientId):null;
+      const b=document.createElement("button");
+      b.innerHTML=esc(t.name||"Untitled meeting")+'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--faint);margin-top:1px">'+esc([cl?cl.name:null,t.cur&&t.cur.date?fmtDayDate(t.cur.date):null,(view==="agenda"&&t.id===DB.activeId)?"open now":null].filter(Boolean).join(" · "))+'</div>';
+      b.onclick=(e)=>{e.stopPropagation();closeSMenu();addNoteToSeries(n,t);};
+      list.append(b);
+    });
+  }
+  inp.addEventListener("input",draw);
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter"){const b=list.querySelector("button");if(b)b.click();}});
+  draw();
+  document.body.append(m);
+  const r=anchor.getBoundingClientRect();
+  let top=window.scrollY+r.bottom+4;
+  if(r.bottom+4+m.offsetHeight>window.innerHeight-8)top=window.scrollY+Math.max(8,r.top-4-m.offsetHeight);
+  m.style.top=top+"px";
+  m.style.left=(window.scrollX+Math.max(8,Math.min(r.left,window.innerWidth-m.offsetWidth-8)))+"px";
+  setTimeout(()=>{document.addEventListener("click",sOutside);document.addEventListener("keydown",sEsc);inp.focus();},0);
+}
+function refreshNoteMeta(){
+  const pop=document.getElementById("notePop");if(!pop)return;const n=noteById(_noteOpen);if(!n)return;
+  const mt=pop.querySelector(".np-meta");if(!mt)return;
+  const adds=n.adds.map(a=>esc(a.name)+" ("+esc(noteStamp(a.at))+")");
+  mt.innerHTML="Edited "+esc(noteStamp(n.upd))+(adds.length?' · <span class="ok">Added to '+adds.join(", ")+'</span>':'');
+}
+function closeNotePop(){
+  const pop=document.getElementById("notePop");if(pop)pop.remove();
+  document.removeEventListener("mousedown",noteOutside,true);document.removeEventListener("keydown",noteEsc);
+  const n=noteById(_noteOpen);_noteOpen=null;
+  if(n&&noteIsEmpty(n)&&!n.adds.length)DB.notes=DB.notes.filter(x=>x!==n);  // never-written notes just disappear
+  save();renderNotesRail();
+}
+function noteOutside(e){if(e.target.closest("#notePop,#smenu,#fmtbar,#toast,.rn-item,.rn-add"))return;closeNotePop();}
+function noteEsc(e){if(e.key!=="Escape")return;if(document.getElementById("smenu"))return;const bar=document.getElementById("fmtbar");if(bar&&bar.style.display==="flex")return;closeNotePop();}
+function openNotePop(id,focusName){
+  const n=noteById(id);if(!n)return;
+  if(document.getElementById("notePop")){const pn=_noteOpen;_noteOpen=null;const pop0=document.getElementById("notePop");pop0.remove();const p=noteById(pn);if(p&&noteIsEmpty(p)&&!p.adds.length&&p!==n)DB.notes=DB.notes.filter(x=>x!==p);}
+  _noteOpen=id;renderNotesRail();
+  const pop=document.createElement("div");pop.className="note-pop";pop.id="notePop";
+  const touch=()=>{n.upd=Date.now();queueNotesRail();};
+  const name=document.createElement("input");name.className="np-name";name.placeholder="Name this note";name.value=n.name||"";name.spellcheck=true;
+  name.addEventListener("input",()=>{n.name=name.value;touch();save();});
+  name.addEventListener("keydown",e=>{if(e.key==="Enter"||(e.key==="ArrowDown")){e.preventDefault();focusLine(0,"end");}});
+  const meta=document.createElement("div");meta.className="np-meta";
+  const ul=document.createElement("ul");ul.className="np-lines";
+  function caretAtStart(el){const sel=window.getSelection();if(!sel.rangeCount||!sel.isCollapsed)return false;const r=document.createRange();r.selectNodeContents(el);r.setEnd(sel.anchorNode,sel.anchorOffset);return r.toString().length===0;}
+  function caretAtEnd(el){const sel=window.getSelection();if(!sel.rangeCount||!sel.isCollapsed)return false;const r=document.createRange();r.selectNodeContents(el);r.setStart(sel.anchorNode,sel.anchorOffset);return r.toString().length===0;}
+  function focusLine(i,where){const el=ul.querySelectorAll(".np-line")[i];if(!el)return;el.focus();if(where==="start"){try{const r=document.createRange();r.selectNodeContents(el);r.collapse(true);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(_){}}else placeCaretEnd(el);}
+  function redraw(fi,where){
+    ul.innerHTML="";
+    n.lines.forEach((l,i)=>{
+      const li=document.createElement("li");li.style.marginLeft=((l.lvl|0)*20)+"px";
+      const dot=document.createElement("span");dot.className="dot";
+      const ed=document.createElement("div");ed.className="np-line";ed.contentEditable=true;ed.dataset.ph=i===0&&n.lines.length===1?"Start typing…":"";
+      bindRich(ed,()=>l.t,(html)=>{l.t=html;touch();});
+      // multi-line plain-text paste becomes separate bullets (leading tabs/spaces set the indent)
+      ed.addEventListener("paste",e=>{
+        const cd=e.clipboardData;if(!cd)return;const txt=cd.getData("text/plain")||"";
+        if(!/\n/.test(txt.trim()))return;
+        e.preventDefault();e.stopImmediatePropagation();
+        const rows=txt.replace(/\r/g,"").split("\n").filter(r=>r.trim());
+        const parsed=rows.map(r=>{const m=/^([ \t]*)/.exec(r)[1];const ind=(m.match(/\t/g)||[]).length+Math.floor(m.replace(/\t/g,"").length/2);return {t:esc(r.trim().replace(/^([-*•◦▪]|\d+[.)])\s+/,"")),lvl:Math.min(MAX_LVL,(l.lvl|0)+ind)};});
+        let last;
+        if(rtext(l.t)){n.lines.splice(i+1,0,...parsed);last=i+parsed.length;}
+        else{const first=parsed.shift();l.t=first.t;l.lvl=first.lvl;n.lines.splice(i+1,0,...parsed);last=i+parsed.length;}
+        touch();save();redraw(last,"end");
+      },true);
+      ed.addEventListener("keydown",e=>{
+        if(e.key==="Tab"){e.preventDefault();l.lvl=Math.max(0,Math.min(MAX_LVL,(l.lvl|0)+(e.shiftKey?-1:1)));save();redraw(i,"end");}
+        else if(e.key==="Enter"){
+          e.preventDefault();
+          // split at the caret: the text after it moves to a new bullet below
+          let rest="";const sel=window.getSelection();
+          if(sel.rangeCount){const r=sel.getRangeAt(0);r.deleteContents();const after=document.createRange();after.selectNodeContents(ed);after.setStart(r.endContainer,r.endOffset);const tmp=document.createElement("div");tmp.append(after.extractContents());rest=sanitizeRich(tmp.innerHTML);if(!rtext(rest))rest="";}
+          l.t=sanitizeRich(ed.innerHTML);n.lines.splice(i+1,0,{t:rest,lvl:l.lvl|0});touch();save();redraw(i+1,"start");
+        }
+        else if(e.key==="Backspace"&&caretAtStart(ed)){
+          if(l.lvl>0){e.preventDefault();l.lvl--;save();redraw(i,"start");}
+          else if(i>0){e.preventDefault();const prev=n.lines[i-1];prev.t=sanitizeRich(prev.t+(rtext(l.t)?l.t:""));n.lines.splice(i,1);touch();save();redraw(i-1,"end");}
+        }
+        else if(e.key==="ArrowUp"&&caretAtStart(ed)){if(i>0){e.preventDefault();focusLine(i-1,"end");}else{e.preventDefault();name.focus();}}
+        else if(e.key==="ArrowDown"&&caretAtEnd(ed)&&i<n.lines.length-1){e.preventDefault();focusLine(i+1,"start");}
+      });
+      li.append(dot,ed);ul.append(li);
+    });
+    if(fi!=null)setTimeout(()=>focusLine(fi,where),0);
+    place();
+  }
+  const hint=document.createElement("div");hint.className="np-hint";hint.textContent="Enter for a new bullet · Tab indents, Shift+Tab outdents · select text to format";
+  const foot=document.createElement("div");foot.className="np-foot";
+  const del=document.createElement("button");del.className="np-del";del.textContent="Delete";
+  del.onclick=()=>{
+    const idx=DB.notes.indexOf(n);DB.notes=DB.notes.filter(x=>x!==n);
+    closeNotePop();
+    if(noteIsEmpty(n))return;
+    showToast("Deleted <b>"+esc((n.name||"").trim()||"Untitled note")+"</b>",{actionLabel:"Undo",onAction:()=>{DB.notes.splice(Math.min(idx,DB.notes.length),0,n);save();renderNotesRail();}});
+  };
+  const go=document.createElement("div");go.className="np-go";
+  const tgt=noteDefaultTarget();
+  const main=document.createElement("button");
+  main.textContent=tgt?"Add to "+(tgt.name||"this meeting"):"Add to agenda…";
+  main.title=tgt?"Add this note as a topic on the open agenda":"Pick a meeting to add this note to as a topic";
+  main.onclick=(e)=>{e.stopPropagation();const t=noteDefaultTarget();if(t)addNoteToSeries(n,t);else openNoteTargetMenu(n,main);};
+  go.append(main);
+  if(tgt){const pk=document.createElement("button");pk.className="np-pick";pk.innerHTML="▾";pk.title="Add to a different meeting…";pk.onclick=(e)=>{e.stopPropagation();openNoteTargetMenu(n,pk);};go.append(pk);}
+  foot.append(del,go);
+  pop.append(name,meta,ul,hint,foot);
+  document.body.append(pop);
+  function place(){
+    const item=document.querySelector('.rn-item[data-id="'+n.id+'"]'),rail=document.getElementById("rail");
+    const rr=rail?rail.getBoundingClientRect():{right:0};
+    const ir=item?item.getBoundingClientRect():{top:80};
+    const h=pop.offsetHeight,wd=pop.offsetWidth;
+    pop.style.left=Math.max(8,Math.min(rr.right+10,window.innerWidth-wd-8))+"px";
+    pop.style.top=Math.max(12,Math.min(ir.top-14,window.innerHeight-h-12))+"px";
+  }
+  redraw(null);refreshNoteMeta();
+  setTimeout(()=>{if(focusName||!(n.name||"").trim())name.focus();else focusLine(n.lines.length-1,"end");
+    document.addEventListener("mousedown",noteOutside,true);document.addEventListener("keydown",noteEsc);},0);
 }
 function closeSMenu(){const m=document.getElementById("smenu");if(m)m.remove();document.removeEventListener("click",sOutside);document.removeEventListener("keydown",sEsc);}
 function sOutside(e){if(!e.target.closest("#smenu"))closeSMenu();}
