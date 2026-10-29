@@ -1295,7 +1295,9 @@ function load(){
   if(!Array.isArray(DB.standaloneActions))DB.standaloneActions=[];
   if(!Array.isArray(DB.actionTrash))DB.actionTrash=[];
   if(!Array.isArray(DB.notes))DB.notes=[];
-  DB.notes.forEach(n=>{if(typeof n.name!=="string")n.name="";if(!Array.isArray(n.lines)||!n.lines.length)n.lines=[{t:"",lvl:0,k:"p"}];n.lines.forEach(l=>{if(!/^(p|h1|h2|ul|ol|todo)$/.test(l.k))l.k="ul";});if(!Array.isArray(n.adds))n.adds=[];if(!n.upd)n.upd=n.at||Date.now();});
+  DB.notes.forEach(n=>{if(typeof n.name!=="string")n.name="";if(!Array.isArray(n.lines)||!n.lines.length)n.lines=[{t:"",lvl:0,k:"p"}];n.lines.forEach(l=>{if(!/^(p|h1|h2|ul|ol|todo)$/.test(l.k))l.k="ul";});
+    // one-time upgrade of all-bullet notes: a top-level bullet with sub-bullets becomes a Heading 2 over a bulleted list, a lone top-level bullet becomes a paragraph
+    if(!n.v){if(n.lines.every(l=>l.k==="ul"))n.lines.forEach((l,i)=>{if((l.lvl|0)>0){l.lvl=(l.lvl|0)-1;return;}const nx=n.lines[i+1];l.k=(nx&&(nx.lvl|0)>0&&rtext(l.t))?"h2":"p";l.lvl=0;});n.v=2;}if(!Array.isArray(n.adds))n.adds=[];if(!n.upd)n.upd=n.at||Date.now();});
   if(!Array.isArray(DB.clients))DB.clients=[];
   DB.clients.forEach(c=>{if(!Array.isArray(c.colors))c.colors=[];c.colors=c.colors.filter(x=>/^#([0-9a-fA-F]{6})$/.test(x)).slice(0,4);if(typeof c.archived!=="boolean")c.archived=false;if(typeof c.internalDefault!=="boolean")c.internalDefault=false;});
   if(!Array.isArray(DB.series)||!DB.series.length){const s=newSeries("Meeting 1",true);DB.series=[s];DB.activeId=s.id;}
@@ -2907,7 +2909,7 @@ function renderNotesRail(){
 const ICO_RAIL_NOTES='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>';
 function queueNotesRail(){clearTimeout(_noteRailTimer);_noteRailTimer=setTimeout(renderNotesRail,400);}
 function newNote(){
-  const n={id:uid(),name:"",lines:[{t:"",lvl:0,k:"p"}],at:Date.now(),upd:Date.now(),adds:[]};
+  const n={id:uid(),v:2,name:"",lines:[{t:"",lvl:0,k:"p"}],at:Date.now(),upd:Date.now(),adds:[]};
   DB.notes.push(n);DB.ui.sec.notes=false;save();
   closeNotePop();renderNotesRail();openNotePop(n.id,true);
 }
