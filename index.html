@@ -982,8 +982,25 @@
   .apo-gcl{display:flex;align-items:center;gap:8px;margin:14px 0 7px}
   .apo-gdot{width:9px;height:9px;border-radius:50%;flex:none}
   .apo-gnm{font-family:"Archivo",sans-serif;font-size:13px;font-weight:600;color:var(--ink)}
+  .apo-gcl.tog{cursor:pointer;user-select:none;border-radius:7px;padding:3px 6px 3px 0;margin-left:-2px}
+  .apo-gcl.tog:hover .apo-gnm{color:var(--accent-ink)}
+  .apo-chev{flex:none;color:var(--muted);transition:transform .15s;display:flex}
+  .apo-gcl.col .apo-chev{transform:rotate(-90deg)}
+  .act-done{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent-ink);white-space:nowrap;cursor:default}
+  .act-done.est{color:var(--muted)}
+  .act-done.none{color:var(--faint)}
+  .act-sortbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:"Archivo",sans-serif;font-size:12px;color:var(--muted);margin:2px 0 4px}
+  .act-sortbar .home-toggle{margin:0}
+  .act-sortbar .home-toggle button{padding:5px 12px;font-size:12px}
+  .act-dir{border:1px solid var(--hair);background:var(--card);border-radius:8px;font-family:"Archivo",sans-serif;font-weight:600;font-size:12px;color:var(--ink-soft);padding:6px 11px;cursor:pointer}
+  .act-dir:hover{border-color:var(--accent);color:var(--accent-ink)}
+  .act-more{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 14px);margin:6px 0 0 14px;border:1px dashed var(--hair-strong);background:none;border-radius:10px;padding:11px;font-family:"Archivo",sans-serif;font-weight:600;font-size:12.5px;color:var(--accent-ink);cursor:pointer}
+  .act-more:hover{border-color:var(--accent);background:var(--accent-wash)}
+  .act-back{border:0;background:none;font-family:"Archivo",sans-serif;font-weight:600;font-size:12.5px;color:var(--muted);cursor:pointer;padding:4px 0;margin:0 0 4px}
+  .act-back:hover{color:var(--accent-ink)}
+  .act-sub{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint);margin:2px 0 10px}
   .apo-gcnt{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);background:var(--card);border:1px solid var(--hair);border-radius:99px;padding:1px 7px}
-  .apo-row{display:grid;grid-template-columns:20px minmax(0,1fr) 18px 122px 82px 18px;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:10px;padding:11px 14px;margin:0 0 8px 14px;cursor:pointer;box-shadow:var(--shadow)}
+  .apo-row{display:grid;grid-template-columns:20px minmax(0,1fr) 18px 122px 92px 18px;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:10px;padding:11px 14px;margin:0 0 8px 14px;cursor:pointer;box-shadow:var(--shadow)}
   .apo-row:hover{border-color:var(--accent)}
   .apo-row>.atag,.apo-row>.act-due{justify-self:start;margin-top:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .apo-cb{width:19px;height:19px;border-radius:5px;border:1.5px solid var(--hair-strong);background:none;flex:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
@@ -1294,6 +1311,11 @@ function load(){
   if(!Array.isArray(DB.gcalSkipped))DB.gcalSkipped=[];
   if(!Array.isArray(DB.standaloneActions))DB.standaloneActions=[];
   if(!Array.isArray(DB.actionTrash))DB.actionTrash=[];
+  if(DB.ui.actSort!=="date")DB.ui.actSort="client";
+  if(DB.ui.actSortDir!=="asc")DB.ui.actSortDir="desc";
+  if(!DB.ui.actDoneCol||typeof DB.ui.actDoneCol!=="object")DB.ui.actDoneCol={};
+  // completions from before dates were recorded: an archived one was done by the time its meeting was saved, so use that as the date (marked as an estimate)
+  (DB.series||[]).forEach(sr=>(sr.log||[]).forEach(e=>(((e.snap&&e.snap.actions)||[])).forEach(a=>{if(a&&a.done&&!a.doneAt&&e.at){a.doneAt=e.at;a.doneAtEst=true;}})));
   if(!Array.isArray(DB.notes))DB.notes=[];
   DB.notes.forEach(n=>{if(typeof n.name!=="string")n.name="";if(!Array.isArray(n.lines)||!n.lines.length)n.lines=[{t:"",lvl:0,k:"p"}];n.lines.forEach(l=>{if(!/^(p|h1|h2|ul|ol|todo)$/.test(l.k))l.k="ul";});
     // one-time upgrade of all-bullet notes: a top-level bullet with sub-bullets becomes a Heading 2 over a bulleted list, a lone top-level bullet becomes a paragraph
@@ -1783,7 +1805,7 @@ function renderActions(){
   S.actions.forEach((a,i)=>{
     const row=document.createElement("div");row.className="act"+(a.done?" done":"");
     const box=document.createElement("div");box.className="box";box.innerHTML=CHECK;
-    box.onclick=()=>{a.done=!a.done;save();renderActions();};
+    box.onclick=()=>{setActDone(a,!a.done);save();renderActions();};
     const t=document.createElement("div");t.className="atext";t.contentEditable=true;t.dataset.ph="Action";
     bindRich(t,()=>a.t,(html)=>{a.t=html;});
     const due=document.createElement("button");const over=!a.done&&isOverdue(a.due);
@@ -1866,7 +1888,7 @@ function drawActionPanel(){
   const rSt=mk("Status");
   if(ro){const s=document.createElement("span");s.textContent=a.done?"Completed":"Open";rSt.append(s);}
   else{const b=document.createElement("button");b.className="ap-status"+(a.done?" done":"");b.innerHTML=(a.done?"✓ Completed":"○ Open");
-    b.onclick=()=>{a.done=!a.done;save();drawActionPanel();refresh();updateActionsNav();};rSt.append(b);}
+    b.onclick=()=>{setActDone(a,!a.done);save();drawActionPanel();refresh();updateActionsNav();};rSt.append(b);}
   body.append(rSt);
 
   if(ctx.series){
@@ -4993,7 +5015,12 @@ function fmtDue(iso){const d=parseISO(iso);return d?d.toLocaleDateString(undefin
 function isOverdue(iso){const d=parseISO(iso);if(!d)return false;const t=new Date();t.setHours(0,0,0,0);return d.getTime()<t.getTime();}
 function byDue(a,b){const da=a.action.due||"",db=b.action.due||"";if(da&&db)return da<db?-1:(da>db?1:0);if(da)return -1;if(db)return 1;return 0;}
 function updateActionsNav(){const el=document.getElementById("railActionsCount");if(!el)return;let n=DB.series.reduce((a,s)=>a+(((s.cur&&s.cur.actions)||[]).filter(x=>!x.done&&(x.t||"").trim()).length),0);n+=(DB.standaloneActions||[]).filter(x=>!x.done&&(x.t||"").trim()).length;el.textContent=n;el.style.display=n?"":"none";}
-function goActions(){view="actions";applyView();applyBrand();renderActionsPage();renderRail();}
+function goActions(){_actAllDone=false;view="actions";applyView();applyBrand();renderActionsPage();renderRail();}
+// completing stamps the date; un-completing clears it, so completing again later records the newer date
+function setActDone(a,v){a.done=!!v;delete a.doneAtEst;if(a.done)a.doneAt=Date.now();else delete a.doneAt;}
+function fmtDoneDate(ms,full){const d=new Date(ms);if(full)return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"})+" at "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});return d.toLocaleDateString(undefined,d.getFullYear()===new Date().getFullYear()?{month:"short",day:"numeric"}:{month:"short",day:"numeric",year:"numeric"});}
+const DONE_PREVIEW=10;
+let _actAllDone=false;   // true while the full page of every completed action is open
 function actionsRows(){
   const f=DB.ui.actFilter||"open";const rows=[];
   const pushHistory=(pred)=>{DB.series.forEach(s=>{(s.log||[]).forEach(e=>{(((e.snap&&e.snap.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(pred&&!pred(a))return;rows.push({series:s,action:a,archived:true,when:e.date||fmtDate(e.at),entryId:e.id});});});});};
@@ -5023,7 +5050,7 @@ function openActionClientMenu(a,anchor,after){
 function actionRowEl(r){
   const row=document.createElement("div");row.className="apo-row"+(r.standalone?" standalone":"");
   const cb=document.createElement("button");cb.className="apo-cb"+(r.action.done?" on":"")+(r.archived?" ro":"");cb.innerHTML=r.action.done?CHECK:"";
-  if(!r.archived)cb.onclick=(e)=>{e.stopPropagation();r.action.done=!r.action.done;save();renderActionsPage();updateActionsNav();};
+  if(!r.archived)cb.onclick=(e)=>{e.stopPropagation();setActDone(r.action,!r.action.done);save();renderActionsPage();updateActionsNav();};
   const tx=document.createElement("div");tx.className="apo-tx"+(r.action.done?" done":"");
   if(r.standalone){tx.contentEditable=true;tx.dataset.ph="New action";bindRich(tx,()=>r.action.t,(html)=>{r.action.t=html;updateActionsNav();});}
   else{tx.innerHTML=richForSnap(r.action.t)||"(untitled)";}
@@ -5032,11 +5059,21 @@ function actionRowEl(r){
   tag.textContent=cl?("◆ "+shorten(cl.name)):"+ client";
   if(r.archived){tag.disabled=true;tag.style.cursor="default";}
   else{tag.title="Assign this action to a client";tag.onclick=(e)=>{e.stopPropagation();openActionClientMenu(r.action,tag);};}
-  const due=document.createElement("button");const over=!r.archived&&!r.action.done&&isOverdue(r.action.due);
+  if(r.action.done){
+    const dn=document.createElement("span");const at=r.action.doneAt;
+    dn.className="act-done"+(at?(r.action.doneAtEst?" est":""):" none");
+    dn.textContent=at?"✓ "+fmtDoneDate(at):"✓ Done";
+    dn.title=at?(r.action.doneAtEst?"Completed on or before "+fmtDoneDate(at,true)+" — the exact date wasn’t recorded, so this is when its meeting was saved":"Completed "+fmtDoneDate(at,true)):"Completed (date not recorded)";
+    if(r.action.due)dn.title+="\nDue "+fmtDue(r.action.due);
+    dn.onclick=(e)=>e.stopPropagation();
+    var due=dn;
+  }else{
+  var due=document.createElement("button");const over=!r.archived&&!r.action.done&&isOverdue(r.action.due);
   due.className="act-due"+(r.action.due?(over?" over":""):" empty");
   due.textContent=r.action.due?fmtDue(r.action.due):"Due date";
   if(r.archived){due.disabled=true;due.style.cursor="default";}
   else{due.title="Set a due date";due.onclick=(e)=>{e.stopPropagation();openDatePicker(due,()=>r.action.due,(v)=>{r.action.due=v;renderActionsPage();});};}
+  }
   const del=()=>{
     trashAction(r.action,r.standalone?{kind:"standalone"}:{kind:"series",seriesId:r.series?r.series.id:null,seriesName:r.series?r.series.name:""});
     if(r.standalone){DB.standaloneActions=(DB.standaloneActions||[]).filter(z=>z!==r.action);}
@@ -5105,6 +5142,8 @@ function renderTrashView(w){
 }
 function renderActionsPage(){
   const w=document.getElementById("actionsView");if(!w||view!=="actions")return;w.innerHTML="";
+  if(_actAllDone&&DB.ui.actFilter==="completed"){renderAllCompleted(w);return;}
+  _actAllDone=false;
   const head=document.createElement("div");head.className="home-head";
   const t=document.createElement("h1");t.className="home-title";t.textContent="Actions";head.append(t);
   const add=document.createElement("button");add.className="home-new";add.innerHTML='<span style="font-size:15px;font-weight:700">+</span> Add action';
@@ -5138,6 +5177,7 @@ function renderActionsPage(){
   seg.append(tl);w.append(seg);
   if(DB.ui.actFilter==="trash"){renderTrashView(w);return;}
   const rows=actionsRows();
+  if(DB.ui.actFilter==="completed"&&rows.length){renderCompleted(w,rows,false);return;}
   if(!rows.length){const f=DB.ui.actFilter||"open";w.append(emptyBox("Nothing here",f==="completed"?"Actions you check off will collect here.":"Add an action above, or capture one inside a meeting’s “Actions captured” section."));return;}
   const clientRows=rows.filter(r=>rowCat(r)==="client"),internalRows=rows.filter(r=>rowCat(r)==="internal");
   if(clientRows.length){
@@ -5156,6 +5196,63 @@ function renderActionsPage(){
   if(internalRows.length){
     const c=document.createElement("div");c.className="apo-cat";c.textContent="Internal";w.append(c);
     internalRows.sort(byDue).forEach(r=>w.append(actionRowEl(r)));
+  }
+}
+
+/* ---- completed actions: sort by client or by completed date, collapsible client groups, latest 10 here and the rest on a full page ---- */
+function doneKey(r){return r.action.doneAt||0;}
+function renderAllCompleted(w){
+  const back=document.createElement("button");back.className="act-back";back.textContent="← Actions";
+  back.onclick=()=>{_actAllDone=false;renderActionsPage();window.scrollTo(0,0);};
+  const head=document.createElement("div");head.className="home-head";
+  const t=document.createElement("h1");t.className="home-title";t.textContent="All completed actions";head.append(t);
+  w.append(back,head);
+  const rows=actionsRows();
+  if(!rows.length){w.append(emptyBox("Nothing here","Actions you check off will collect here."));return;}
+  renderCompleted(w,rows,true);
+}
+function renderCompleted(w,rows,full){
+  const bar=document.createElement("div");bar.className="act-sortbar";
+  const lab=document.createElement("span");lab.textContent="Sort by";
+  const seg=document.createElement("div");seg.className="home-toggle";
+  [["client","Client"],["date","Completed date"]].forEach(o=>{const b=document.createElement("button");b.className=DB.ui.actSort===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.actSort=o[0];save();renderActionsPage();};seg.append(b);});
+  const dir=document.createElement("button");dir.className="act-dir";
+  dir.textContent=DB.ui.actSortDir==="asc"?"Oldest first ↑":"Newest first ↓";dir.title="Flip the completed-date order";
+  dir.onclick=()=>{DB.ui.actSortDir=DB.ui.actSortDir==="asc"?"desc":"asc";save();renderActionsPage();};
+  bar.append(lab,seg,dir);
+  const all=rows.slice().sort((a,b)=>doneKey(b)-doneKey(a));
+  const shown=full?all:all.slice(0,DONE_PREVIEW);   // the preview is always the most recent ones
+  const sub=document.createElement("div");sub.className="act-sub";
+  sub.textContent=full?(all.length+" completed action"+(all.length!==1?"s":"")):("Latest "+shown.length+" of "+all.length);
+  w.append(bar,sub);
+  const order=(a,b)=>DB.ui.actSortDir==="asc"?doneKey(a)-doneKey(b):doneKey(b)-doneKey(a);
+  if(DB.ui.actSort==="date"){shown.sort(order).forEach(r=>w.append(actionRowEl(r)));}
+  else{
+    const groups=new Map();
+    shown.forEach(r=>{
+      const cl=rowClientObj(r);const internal=rowCat(r)==="internal";
+      const key=internal?"internal":(cl?"c:"+cl.id:"s:"+(r.series?r.series.id:"x"));
+      if(!groups.has(key))groups.set(key,{key,internal,label:internal?"Internal":(cl?cl.name:(r.series?(r.series.name||"Untitled"):"Unassigned")),color:rowColor(r),rows:[]});
+      groups.get(key).rows.push(r);
+    });
+    [...groups.values()].sort((a,b)=>(a.internal-b.internal)||(a.label||"").localeCompare(b.label||"",undefined,{sensitivity:"base"})).forEach(g=>{
+      const col=!!DB.ui.actDoneCol[g.key];
+      const gh=document.createElement("div");gh.className="apo-gcl tog"+(col?" col":"");gh.title=col?"Show these actions":"Hide these actions";
+      const ch=document.createElement("span");ch.className="apo-chev";ch.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+      const dot=document.createElement("span");dot.className="apo-gdot";dot.style.background=g.color;
+      const nm=document.createElement("span");nm.className="apo-gnm";nm.textContent=g.label;
+      const gc=document.createElement("span");gc.className="apo-gcnt";gc.textContent=g.rows.length;
+      gh.append(ch,dot,nm,gc);
+      gh.onclick=()=>{if(col)delete DB.ui.actDoneCol[g.key];else DB.ui.actDoneCol[g.key]=1;save();renderActionsPage();};
+      w.append(gh);
+      if(!col)g.rows.sort(order).forEach(r=>w.append(actionRowEl(r)));
+    });
+  }
+  if(!full&&all.length>shown.length){
+    const more=document.createElement("button");more.className="act-more";
+    more.textContent="View all "+all.length+" completed actions →";
+    more.onclick=()=>{_actAllDone=true;renderActionsPage();window.scrollTo(0,0);};
+    w.append(more);
   }
 }
 
