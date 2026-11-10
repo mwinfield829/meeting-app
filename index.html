@@ -996,6 +996,11 @@
   .act-dir:hover{border-color:var(--accent);color:var(--accent-ink)}
   .act-more{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 14px);margin:6px 0 0 14px;border:1px dashed var(--hair-strong);background:none;border-radius:10px;padding:11px;font-family:"Archivo",sans-serif;font-weight:600;font-size:12.5px;color:var(--accent-ink);cursor:pointer}
   .act-more:hover{border-color:var(--accent);background:var(--accent-wash)}
+  .act-filter{font-family:"Archivo",sans-serif;font-weight:600;font-size:12.5px;color:var(--ink);border:1px solid var(--hair);background:var(--card);border-radius:8px;padding:6px 8px;cursor:pointer;max-width:220px}
+  .act-search{font-family:"Archivo",sans-serif;font-size:12.5px;color:var(--ink);border:1px solid var(--hair);background:var(--card);border-radius:8px;padding:6px 10px;width:210px;outline:none}
+  .act-search:focus,.act-filter:focus{border-color:var(--accent)}
+  .act-sortbar .act-search+span{margin-left:6px}
+  .apo-row+.act-more{margin:0 0 10px 14px}
   .act-back{border:0;background:none;font-family:"Archivo",sans-serif;font-weight:600;font-size:12.5px;color:var(--muted);cursor:pointer;padding:4px 0;margin:0 0 4px}
   .act-back:hover{color:var(--accent-ink)}
   .act-sub{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint);margin:2px 0 10px}
@@ -5020,7 +5025,7 @@ function goActions(){_actAllDone=false;view="actions";applyView();applyBrand();r
 function setActDone(a,v){a.done=!!v;delete a.doneAtEst;if(a.done)a.doneAt=Date.now();else delete a.doneAt;}
 function fmtDoneDate(ms,full){const d=new Date(ms);if(full)return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"})+" at "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});return d.toLocaleDateString(undefined,d.getFullYear()===new Date().getFullYear()?{month:"short",day:"numeric"}:{month:"short",day:"numeric",year:"numeric"});}
 const DONE_PREVIEW=10;
-let _actAllDone=false;   // true while the full page of every completed action is open
+let _actAllDone=false;   // while the full completed-actions page is open: {key:"all" or a client group key, q:search text}
 function actionsRows(){
   const f=DB.ui.actFilter||"open";const rows=[];
   const pushHistory=(pred)=>{DB.series.forEach(s=>{(s.log||[]).forEach(e=>{(((e.snap&&e.snap.actions)||[])).forEach(a=>{if(!(a.t||"").trim())return;if(pred&&!pred(a))return;rows.push({series:s,action:a,archived:true,when:e.date||fmtDate(e.at),entryId:e.id});});});});};
@@ -5202,17 +5207,44 @@ function renderActionsPage(){
 /* ---- completed actions: sort by client or by completed date, collapsible client groups, latest 10 here and the rest on a full page ---- */
 function doneKey(r){return r.action.doneAt||0;}
 function renderAllCompleted(w){
+  const rows=actionsRows(),groups=doneGroups(rows),key=_actAllDone.key;
+  const g=groups.find(x=>x.key===key);
+  if(key!=="all"&&!g)_actAllDone.key="all";
   const back=document.createElement("button");back.className="act-back";back.textContent="← Actions";
   back.onclick=()=>{_actAllDone=false;renderActionsPage();window.scrollTo(0,0);};
   const head=document.createElement("div");head.className="home-head";
-  const t=document.createElement("h1");t.className="home-title";t.textContent="All completed actions";head.append(t);
+  const t=document.createElement("h1");t.className="home-title";t.textContent=_actAllDone.key==="all"?"All completed actions":g.label+" — completed actions";head.append(t);
   w.append(back,head);
-  const rows=actionsRows();
   if(!rows.length){w.append(emptyBox("Nothing here","Actions you check off will collect here."));return;}
   renderCompleted(w,rows,true);
 }
+// completed rows grouped by client (A–Z), Internal last
+function doneGroups(rows){
+  const groups=new Map();
+  rows.forEach(r=>{
+    const cl=rowClientObj(r);const internal=rowCat(r)==="internal";
+    const key=internal?"internal":(cl?"c:"+cl.id:"s:"+(r.series?r.series.id:"x"));
+    if(!groups.has(key))groups.set(key,{key,internal,label:internal?"Internal":(cl?cl.name:(r.series?(r.series.name||"Untitled"):"Unassigned")),color:rowColor(r),rows:[]});
+    groups.get(key).rows.push(r);
+  });
+  return [...groups.values()].sort((a,b)=>(a.internal-b.internal)||(a.label||"").localeCompare(b.label||"",undefined,{sensitivity:"base"}));
+}
 function renderCompleted(w,rows,full){
   const bar=document.createElement("div");bar.className="act-sortbar";
+  const allGroups=doneGroups(rows);
+  // the full page adds filters: which client, and a text search
+  let q="";
+  if(full){
+    const sel=document.createElement("select");sel.className="act-filter";
+    [["all","All clients"]].concat(allGroups.map(g=>[g.key,g.label+" ("+g.rows.length+")"])).forEach(([v,l])=>{const o=document.createElement("option");o.value=v;o.textContent=l;sel.append(o);});
+    sel.value=_actAllDone.key;sel.onchange=()=>{_actAllDone.key=sel.value;renderActionsPage();};
+    const srch=document.createElement("input");srch.className="act-search";srch.type="search";srch.placeholder="Search completed actions";srch.value=_actAllDone.q||"";
+    srch.oninput=()=>{_actAllDone.q=srch.value;const pos=srch.selectionStart;renderActionsPage();const n=document.querySelector("#actionsView .act-search");if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(_){}}};
+    bar.append(sel,srch);
+    q=(_actAllDone.q||"").trim().toLowerCase();
+    if(_actAllDone.key!=="all")rows=(allGroups.find(g=>g.key===_actAllDone.key)||{rows:[]}).rows;
+    if(q)rows=rows.filter(r=>(rtext(r.action.t)+" "+rtext(r.action.notes||"")).toLowerCase().includes(q));
+  }
   const lab=document.createElement("span");lab.textContent="Sort by";
   const seg=document.createElement("div");seg.className="home-toggle";
   [["client","Client"],["date","Completed date"]].forEach(o=>{const b=document.createElement("button");b.className=DB.ui.actSort===o[0]?"on":"";b.textContent=o[1];b.onclick=()=>{DB.ui.actSort=o[0];save();renderActionsPage();};seg.append(b);});
@@ -5220,40 +5252,39 @@ function renderCompleted(w,rows,full){
   dir.textContent=DB.ui.actSortDir==="asc"?"Oldest first ↑":"Newest first ↓";dir.title="Flip the completed-date order";
   dir.onclick=()=>{DB.ui.actSortDir=DB.ui.actSortDir==="asc"?"desc":"asc";save();renderActionsPage();};
   bar.append(lab,seg,dir);
-  const all=rows.slice().sort((a,b)=>doneKey(b)-doneKey(a));
-  const shown=full?all:all.slice(0,DONE_PREVIEW);   // the preview is always the most recent ones
-  const sub=document.createElement("div");sub.className="act-sub";
-  sub.textContent=full?(all.length+" completed action"+(all.length!==1?"s":"")):("Latest "+shown.length+" of "+all.length);
-  w.append(bar,sub);
   const order=(a,b)=>DB.ui.actSortDir==="asc"?doneKey(a)-doneKey(b):doneKey(b)-doneKey(a);
-  if(DB.ui.actSort==="date"){shown.sort(order).forEach(r=>w.append(actionRowEl(r)));}
-  else{
-    const groups=new Map();
-    shown.forEach(r=>{
-      const cl=rowClientObj(r);const internal=rowCat(r)==="internal";
-      const key=internal?"internal":(cl?"c:"+cl.id:"s:"+(r.series?r.series.id:"x"));
-      if(!groups.has(key))groups.set(key,{key,internal,label:internal?"Internal":(cl?cl.name:(r.series?(r.series.name||"Untitled"):"Unassigned")),color:rowColor(r),rows:[]});
-      groups.get(key).rows.push(r);
-    });
-    [...groups.values()].sort((a,b)=>(a.internal-b.internal)||(a.label||"").localeCompare(b.label||"",undefined,{sensitivity:"base"})).forEach(g=>{
-      const col=!!DB.ui.actDoneCol[g.key];
+  const newest=(a,b)=>doneKey(b)-doneKey(a);
+  // on the Actions page each client shows only its latest few; the full page shows everything
+  const groups=doneGroups(rows).map(g=>{const all=g.rows.slice().sort(newest);return Object.assign({},g,{total:all.length,rows:full?all:all.slice(0,DONE_PREVIEW)});});
+  const shownN=groups.reduce((n,g)=>n+g.rows.length,0);
+  const sub=document.createElement("div");sub.className="act-sub";
+  sub.textContent=full?(rows.length+" completed action"+(rows.length!==1?"s":"")+(q?" matching “"+_actAllDone.q.trim()+"”":""))
+    :(shownN<rows.length?"Latest "+DONE_PREVIEW+" per client · "+rows.length+" completed in all":rows.length+" completed action"+(rows.length!==1?"s":""));
+  w.append(bar,sub);
+  if(full&&!rows.length){w.append(emptyBox("No matches","Try a different client or search."));return;}
+  const viewAll=(key,label,n)=>{const b=document.createElement("button");b.className="act-more";b.textContent=label+" ("+n+") →";b.onclick=()=>{_actAllDone={key,q:""};renderActionsPage();window.scrollTo(0,0);};return b;};
+  if(DB.ui.actSort==="date"){
+    [].concat(...groups.map(g=>g.rows)).sort(order).forEach(r=>w.append(actionRowEl(r)));
+    if(!full&&shownN<rows.length)w.append(viewAll("all","View all completed actions",rows.length));
+    return;
+  }
+  const single=full&&_actAllDone.key!=="all";   // one client's page: no group header needed
+  groups.forEach(g=>{
+    const col=!single&&!!DB.ui.actDoneCol[g.key];
+    if(!single){
       const gh=document.createElement("div");gh.className="apo-gcl tog"+(col?" col":"");gh.title=col?"Show these actions":"Hide these actions";
       const ch=document.createElement("span");ch.className="apo-chev";ch.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
       const dot=document.createElement("span");dot.className="apo-gdot";dot.style.background=g.color;
       const nm=document.createElement("span");nm.className="apo-gnm";nm.textContent=g.label;
-      const gc=document.createElement("span");gc.className="apo-gcnt";gc.textContent=g.rows.length;
+      const gc=document.createElement("span");gc.className="apo-gcnt";gc.textContent=g.total;
       gh.append(ch,dot,nm,gc);
       gh.onclick=()=>{if(col)delete DB.ui.actDoneCol[g.key];else DB.ui.actDoneCol[g.key]=1;save();renderActionsPage();};
       w.append(gh);
-      if(!col)g.rows.sort(order).forEach(r=>w.append(actionRowEl(r)));
-    });
-  }
-  if(!full&&all.length>shown.length){
-    const more=document.createElement("button");more.className="act-more";
-    more.textContent="View all "+all.length+" completed actions →";
-    more.onclick=()=>{_actAllDone=true;renderActionsPage();window.scrollTo(0,0);};
-    w.append(more);
-  }
+    }
+    if(col)return;
+    g.rows.slice().sort(order).forEach(r=>w.append(actionRowEl(r)));
+    if(!full&&g.total>g.rows.length)w.append(viewAll(g.key,"View all "+g.label+" completed actions",g.total));
+  });
 }
 
 function renderAll(){
