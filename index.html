@@ -3320,6 +3320,8 @@ function buildNoteEditor(n,host,opts){
     _ndrag={api,start:idx};
   });
   function redraw(fi,where){
+    // removing a focused line fires blur, which would save its stale text over the model we just changed — retire the old lines first
+    ul.querySelectorAll(".np-line").forEach(x=>{x._gone=true;});
     ul.innerHTML="";const nums=noteNumbers(n.lines);
     n.lines.forEach((l,i)=>{
       const li=document.createElement("li");li.className="k-"+l.k+(l.k==="todo"&&l.done?" done":"");li.style.marginLeft=((l.lvl|0)*(page?24:20))+"px";
@@ -3333,7 +3335,7 @@ function buildNoteEditor(n,host,opts){
       }
       const ed=document.createElement("div");ed.className="np-line";ed.contentEditable=true;
       ed.dataset.ph=(n.lines.length===1&&l.k==="p")?"Start typing…":noteIsHead(l.k)?NOTE_STYLES[l.k]:noteIsList(l.k)?"List item":"";
-      bindRich(ed,()=>l.t,(html)=>{l.t=html;touch();});
+      bindRich(ed,()=>l.t,(html)=>{if(ed._gone)return;l.t=html;touch();});
       ed.addEventListener("focus",()=>{cur=i;syncTb();});
       // "- ", "1. ", "[] ", "# " and "## " at the start of a line restyle it
       ed.addEventListener("input",e=>{
